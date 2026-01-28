@@ -977,12 +977,12 @@ function MusicSubcategoryContent({
 }) {
   const [displayedText, setDisplayedText] = useState("");
   const [showCursor, setShowCursor] = useState(false);
+  const [lastAnimatedKey, setLastAnimatedKey] = useState<string | null>(null);
   const fullTextRef = useRef("");
   const currentIndexRef = useRef(0);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isCompleteRef = useRef(false);
   const isTypingActiveRef = useRef(false);
-  const typedContentKeyRef = useRef<string | null>(null);
   const onLineTypingStartRef = useRef(onLineTypingStart);
   const onLineTypingEndRef = useRef(onLineTypingEnd);
   onLineTypingStartRef.current = onLineTypingStart;
@@ -1026,47 +1026,33 @@ function MusicSubcategoryContent({
     [subcategory, albums]
   );
 
-  // Build full text. One guard: if contentKey already typed, show full text immediately. Otherwise run typewriter once.
+  // fullText is source of truth. Animation triggers exactly once per contentKey change; one state: lastAnimatedKey.
   useEffect(() => {
     const lines: string[] = [];
-    
-    // Back button
     lines.push("← Back");
     lines.push("");
-    
-    // Category header
     lines.push(`Category: ${subcategory}`);
     lines.push("");
-    
-    // Bandcamp link
     lines.push("Released works available on streaming platforms and physical media.");
     lines.push("");
     lines.push("");
-    
-    // Album cards - format as text blocks
     albums.forEach((album, albumIndex) => {
-      if (albumIndex > 0) {
-        lines.push("");
-      }
+      if (albumIndex > 0) lines.push("");
       lines.push(`Album: ${album.title}`);
       lines.push(`Release: ${album.year}`);
       lines.push(`Description: ${album.description}`);
-      if (album.link) {
-        lines.push(`Link: ${album.link}`);
-      }
+      if (album.link) lines.push(`Link: ${album.link}`);
     });
-    
     const fullText = lines.join("\n");
     fullTextRef.current = fullText;
 
-    if (typedContentKeyRef.current === contentKey) {
+    if (contentKey === lastAnimatedKey) {
       setDisplayedText(fullText);
       setShowCursor(true);
       isCompleteRef.current = true;
       return;
     }
 
-    typedContentKeyRef.current = contentKey;
     currentIndexRef.current = 0;
     setDisplayedText("");
     isCompleteRef.current = false;
@@ -1082,6 +1068,7 @@ function MusicSubcategoryContent({
         isTypingActiveRef.current = false;
         isCompleteRef.current = true;
         setShowCursor(true);
+        setLastAnimatedKey(contentKey);
         if (timeoutRef.current) {
           clearTimeout(timeoutRef.current);
           timeoutRef.current = null;
@@ -1146,7 +1133,7 @@ function MusicSubcategoryContent({
         timeoutRef.current = null;
       }
     };
-  }, [contentKey]);
+  }, [contentKey, lastAnimatedKey]);
 
   // Cursor blink
   useEffect(() => {
