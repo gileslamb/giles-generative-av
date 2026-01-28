@@ -7,12 +7,14 @@ import ProjectsInfoFeed from "./ProjectsInfoFeed";
 import MusicInfoFeed from "./MusicInfoFeed";
 import NowPlayingReadout from "./NowPlayingReadout";
 import { getSortedMusic } from "@/content/music";
+import { getAlbumTracks, getSiteTracks, type Track } from "@/content/tracks";
 
 type Mode = "Listen" | "Watch" | "Feel" | "Contact" | "Rain";
 type ShapeMode = "circular" | "angular";
 type ColorPalette = "charcoal" | "blue" | "green" | "umber";
 type MusicSubcategory = "Commercial Albums" | "Library Music" | "Un-Released" | null;
 
+// Legacy TRACKS array - kept for compatibility, but we'll use Track objects
 const TRACKS = [
   "/audio/01Ever.mp3",
   "/audio/Onset.wav",
@@ -82,6 +84,8 @@ export default function HomePage() {
   const [isMuted, setIsMuted] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [showContact, setShowContact] = useState(false);
+  const [contactMode, setContactMode] = useState<"contact" | "license">("contact");
+  const [licenseAlbumId, setLicenseAlbumId] = useState<string | undefined>(undefined);
   const [userGestureArmed, setUserGestureArmed] = useState(false);
   const [energy, setEnergy] = useState(0);
   const [bloom, setBloom] = useState(0);
@@ -96,6 +100,11 @@ export default function HomePage() {
   const [musicSubcategory, setMusicSubcategory] = useState<MusicSubcategory>(null);
   // Audio unlocked flag for typing sound
   const [audioUnlocked, setAudioUnlocked] = useState(false);
+  // Album-scoped playback state
+  const [playbackMode, setPlaybackMode] = useState<"site" | "album">("site");
+  const [currentPlaylist, setCurrentPlaylist] = useState<Track[]>(getSiteTracks());
+  const [albumContext, setAlbumContext] = useState<{ albumId: string } | undefined>(undefined);
+  const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -116,9 +125,17 @@ export default function HomePage() {
   const [activeSoundscape, setActiveSoundscape] = useState<"forest" | "rain" | "space" | null>(null);
   const soundscapeFadeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Random track selection only after client mount
+  // Initialize site playlist and select random track
   useEffect(() => {
-    setTrackUrl(pickRandom(TRACKS));
+    const siteTracks = getSiteTracks();
+    setCurrentPlaylist(siteTracks);
+    // Shuffle site playlist
+    const shuffled = [...siteTracks].sort(() => Math.random() - 0.5);
+    setCurrentPlaylist(shuffled);
+    setCurrentTrackIndex(0);
+    if (shuffled.length > 0) {
+      setTrackUrl(shuffled[0].url);
+    }
   }, []);
 
   // Randomize flockStyle, shapeMode, colorPalette on initial client mount
@@ -591,18 +608,77 @@ export default function HomePage() {
   }, []);
 
   const reseed = () => {
-    setTrackUrl(pickRandom(TRACKS));
+    // Reseed visual elements
     setFlockStyle(pickRandom(["single", "streams"] as const));
     setShapeMode(pickRandom(["circular", "angular"] as const));
     setColorPalette(pickRandom(["charcoal", "blue", "green", "umber"] as const));
     // Canvas reseed handled by key prop below
     setSeed((s) => s + 1);
+    
+    // Reseed audio: shuffle site playlist and reset to site mode
+    const siteTracks = getSiteTracks();
+    const shuffled = [...siteTracks].sort(() => Math.random() - 0.5);
+    setCurrentPlaylist(shuffled);
+    setCurrentTrackIndex(0);
+    setPlaybackMode("site");
+    setAlbumContext(undefined);
+    if (shuffled.length > 0) {
+      setTrackUrl(shuffled[0].url);
+    }
   };
 
   const nextTrack = () => {
-    const currentIndex = TRACKS.indexOf(trackUrl);
-    const nextIndex = (currentIndex + 1) % TRACKS.length;
-    setTrackUrl(TRACKS[nextIndex]);
+    if (currentPlaylist.length === 0) return;
+    
+    if (playbackMode === "album") {
+      // Album mode: cycle through album tracks
+      const nextIndex = (currentTrackIndex + 1) % currentPlaylist.length;
+      setCurrentTrackIndex(nextIndex);
+      setTrackUrl(currentPlaylist[nextIndex].url);
+      
+      // If we've reached the end, auto-reseed to site playlist
+      if (nextIndex === 0) {
+        const siteTracks = getSiteTracks();
+        const shuffled = [...siteTracks].sort(() => Math.random() - 0.5);
+        setCurrentPlaylist(shuffled);
+        setCurrentTrackIndex(0);
+        setPlaybackMode("site");
+        setAlbumContext(undefined);
+        if (shuffled.length > 0) {
+          setTrackUrl(shuffled[0].url);
+        }
+      }
+    } else {
+      // Site mode: cycle through site playlist
+      const nextIndex = (currentTrackIndex + 1) % currentPlaylist.length;
+      setCurrentTrackIndex(nextIndex);
+      setTrackUrl(currentPlaylist[nextIndex].url);
+    }
+  };
+
+  // Function to scope playback to an album
+  const scopeToAlbum = (albumId: string) => {
+    const albumTracks = getAlbumTracks(albumId);
+    if (albumTracks.length === 0) return;
+    
+    // Shuffle album tracks
+    const shuffled = [...albumTracks].sort(() => Math.random() - 0.5);
+    setCurrentPlaylist(shuffled);
+    setCurrentTrackIndex(0);
+    setPlaybackMode("album");
+    setAlbumContext({ albumId });
+    setTrackUrl(shuffled[0].url);
+    
+    // Start playing if audio is enabled
+    if (audioEnabled && userGestureArmed) {
+      setIsPlaying(true);
+    }
+  };
+
+  const handleLicenseClick = (albumId: string) => {
+    setLicenseAlbumId(albumId);
+    setContactMode("license");
+    setShowContact(true);
   };
 
   const [seed, setSeed] = useState(1);
@@ -693,6 +769,8 @@ export default function HomePage() {
           onSelectSubcategory={setMusicSubcategory}
           onLineTypingStart={startTypingBed}
           onLineTypingEnd={stopTypingBed}
+          onAlbumClick={scopeToAlbum}
+          onLicenseClick={handleLicenseClick}
         />
       )}
 
@@ -802,7 +880,15 @@ export default function HomePage() {
       {/* Contact overlay - Content layer */}
       {showContact && (
         <div className="relative z-10">
-          <ContactOverlay onClose={() => setShowContact(false)} />
+          <ContactOverlay
+            mode={contactMode}
+            albumId={licenseAlbumId}
+            onClose={() => {
+              setShowContact(false);
+              setContactMode("contact");
+              setLicenseAlbumId(undefined);
+            }}
+          />
         </div>
       )}
 
@@ -818,11 +904,15 @@ function MusicSubmenu({
   onSelectSubcategory,
   onLineTypingStart,
   onLineTypingEnd,
+  onAlbumClick,
+  onLicenseClick,
 }: {
   activeSubcategory: MusicSubcategory;
   onSelectSubcategory: (subcategory: MusicSubcategory) => void;
   onLineTypingStart: () => void;
   onLineTypingEnd: () => void;
+  onAlbumClick: (albumId: string) => void;
+  onLicenseClick: (albumId: string) => void;
 }) {
   const subcategories: MusicSubcategory[] = ["Commercial Albums", "Library Music", "Un-Released"];
 
@@ -861,6 +951,8 @@ function MusicSubmenu({
           onBack={() => onSelectSubcategory(null)}
           onLineTypingStart={onLineTypingStart}
           onLineTypingEnd={onLineTypingEnd}
+          onAlbumClick={onAlbumClick}
+          onLicenseClick={onLicenseClick}
         />
       )}
     </div>
@@ -873,11 +965,15 @@ function MusicSubcategoryContent({
   onBack,
   onLineTypingStart,
   onLineTypingEnd,
+  onAlbumClick,
+  onLicenseClick,
 }: {
   subcategory: MusicSubcategory;
   onBack: () => void;
   onLineTypingStart: () => void;
   onLineTypingEnd: () => void;
+  onAlbumClick: (albumId: string) => void;
+  onLicenseClick: (albumId: string) => void;
 }) {
   const [displayedText, setDisplayedText] = useState("");
   const [showCursor, setShowCursor] = useState(false);
@@ -886,7 +982,11 @@ function MusicSubcategoryContent({
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isCompleteRef = useRef(false);
   const isTypingActiveRef = useRef(false);
-  const timeLimitRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const typedContentKeyRef = useRef<string | null>(null);
+  const onLineTypingStartRef = useRef(onLineTypingStart);
+  const onLineTypingEndRef = useRef(onLineTypingEnd);
+  onLineTypingStartRef.current = onLineTypingStart;
+  onLineTypingEndRef.current = onLineTypingEnd;
 
   // Filter albums by category - memoized to prevent infinite re-renders
   const albums = useMemo(() => {
@@ -911,10 +1011,22 @@ function MusicSubcategoryContent({
         year: entry.releaseYear,
         description: entry.description,
         link: entry.link,
+        albumType: entry.albumType,
+        discoUrl: entry.discoUrl,
+        libraryLicenseUrl: entry.libraryLicenseUrl,
+        spotifyUrl: entry.spotifyUrl,
+        appleMusicUrl: entry.appleMusicUrl,
+        bandcampUrl: entry.bandcampUrl,
       }));
   }, [subcategory]);
 
-  // Build full text with exact spacing
+  // Stable key: typing runs ONLY when album set changes (not on link/panel/audio state)
+  const contentKey = useMemo(
+    () => (subcategory ?? "") + "|" + albums.map((a) => a.id).join(","),
+    [subcategory, albums]
+  );
+
+  // Build full text. One guard: if contentKey already typed, show full text immediately. Otherwise run typewriter once.
   useEffect(() => {
     const lines: string[] = [];
     
@@ -934,7 +1046,6 @@ function MusicSubcategoryContent({
     // Album cards - format as text blocks
     albums.forEach((album, albumIndex) => {
       if (albumIndex > 0) {
-        // Blank line between albums
         lines.push("");
       }
       lines.push(`Album: ${album.title}`);
@@ -945,41 +1056,38 @@ function MusicSubcategoryContent({
       }
     });
     
-    fullTextRef.current = lines.join("\n");
+    const fullText = lines.join("\n");
+    fullTextRef.current = fullText;
+
+    if (typedContentKeyRef.current === contentKey) {
+      setDisplayedText(fullText);
+      setShowCursor(true);
+      isCompleteRef.current = true;
+      return;
+    }
+
+    typedContentKeyRef.current = contentKey;
     currentIndexRef.current = 0;
     setDisplayedText("");
     isCompleteRef.current = false;
     setShowCursor(false);
     
-    // Track current line for typing sound
     let currentLineIndex = -1;
     let lastCharWasNewline = false;
     
-    // Start typing
     const startTyping = () => {
-      // Guard: typing tick function must check isTypingActive at top
       if (!isTypingActiveRef.current) return;
       
       if (currentIndexRef.current >= fullTextRef.current.length) {
-        // TYPING COMPLETE
-        console.log("TYPING COMPLETE");
         isTypingActiveRef.current = false;
         isCompleteRef.current = true;
         setShowCursor(true);
-        
-        // Clear timers
         if (timeoutRef.current) {
           clearTimeout(timeoutRef.current);
           timeoutRef.current = null;
         }
-        if (timeLimitRef.current) {
-          clearTimeout(timeLimitRef.current);
-          timeLimitRef.current = null;
-        }
-        
-        // Stop typing bed on final line end
         if (currentLineIndex >= 0) {
-          onLineTypingEnd();
+          onLineTypingEndRef.current();
         }
         return;
       }
@@ -992,17 +1100,17 @@ function MusicSubcategoryContent({
         // New line starting - stop previous line first
         if (currentLineIndex >= 0) {
           // End previous line immediately
-          onLineTypingEnd();
+          onLineTypingEndRef.current();
         }
         currentLineIndex++;
         // Start new line with small delay to create gap
-        onLineTypingStart();
+        onLineTypingStartRef.current();
       }
       
       // Detect line end - BEFORE typing the newline character
       if (isNewline && currentLineIndex >= 0) {
         // Line ending - stop sound immediately
-        onLineTypingEnd();
+        onLineTypingEndRef.current();
       }
       
       lastCharWasNewline = isNewline;
@@ -1028,37 +1136,17 @@ function MusicSubcategoryContent({
       }, delay);
     };
 
-    // Set typing active and start
     isTypingActiveRef.current = true;
-    console.log("TYPING START");
     startTyping();
 
-    // Start 10-second timer - stops typing after 10 seconds
-    timeLimitRef.current = setTimeout(() => {
-      // TYPING STOP (10s limit)
-      console.log("TYPING STOP (10s limit)");
-      isTypingActiveRef.current = false;
-      
-      // Clear typing timers
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-      }
-    }, 10000);
-
     return () => {
-      // Cleanup: set inactive and clear all timers
       isTypingActiveRef.current = false;
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
         timeoutRef.current = null;
-      }
-      if (timeLimitRef.current) {
-        clearTimeout(timeLimitRef.current);
-        timeLimitRef.current = null;
       }
     };
-  }, [subcategory, albums, onLineTypingStart, onLineTypingEnd]);
+  }, [contentKey]);
 
   // Cursor blink
   useEffect(() => {
@@ -1161,7 +1249,16 @@ function MusicSubcategoryContent({
               <div className="space-y-2">
                 <div className="flex items-baseline gap-2">
                   <span className="text-white/50">Album:</span>
-                  <span className="text-red-400">{albumTitle}</span>
+                  {(album.albumType === "commercial" || album.albumType === "unreleased") ? (
+                    <button
+                      onClick={() => onAlbumClick(album.id)}
+                      className="text-red-400 hover:text-red-300 transition-colors cursor-pointer text-left"
+                    >
+                      {albumTitle}
+                    </button>
+                  ) : (
+                    <span className="text-red-400">{albumTitle}</span>
+                  )}
                 </div>
                 <div className="flex items-baseline gap-2">
                   <span className="text-white/50">Release:</span>
@@ -1171,10 +1268,30 @@ function MusicSubcategoryContent({
                   <span className="text-white/50">Description:</span>
                   <span className="text-white">{descriptionLine}</span>
                 </div>
-                {hasLink && (
+                {/* Link rendering based on album type */}
+                {isComplete && (
                   <div className="flex items-baseline gap-2">
                     <span className="text-white/50">Link:</span>
-                    {isComplete ? (
+                    {album.albumType === "library" && album.libraryLicenseUrl ? (
+                      // Library: direct license link
+                      <a
+                        href={album.libraryLicenseUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-green-400 hover:text-green-300 transition-colors"
+                      >
+                        License
+                      </a>
+                    ) : (album.albumType === "commercial" || album.albumType === "unreleased") ? (
+                      // Commercial/Un-Released: Stream / Buy / License button
+                      <button
+                        onClick={() => onLicenseClick(album.id)}
+                        className="text-green-400 hover:text-green-300 transition-colors cursor-pointer"
+                      >
+                        Stream / Buy / License
+                      </button>
+                    ) : hasLink ? (
+                      // Fallback: show original link
                       <a
                         href={linkLine}
                         target="_blank"
@@ -1183,9 +1300,15 @@ function MusicSubcategoryContent({
                       >
                         {linkLine}
                       </a>
-                    ) : (
-                      <span className="text-green-400">{linkLine}</span>
-                    )}
+                    ) : null}
+                  </div>
+                )}
+                {!isComplete && hasLink && (
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-white/50">Link:</span>
+                    <span className="text-green-400">
+                      {album.albumType === "library" ? "License" : "Stream / Buy / License"}
+                    </span>
                   </div>
                 )}
               </div>
@@ -1241,7 +1364,176 @@ function MusicSubcategoryContent({
 }
 
 /** CONTACT OVERLAY */
-function ContactOverlay({ onClose }: { onClose: () => void }) {
+function ContactOverlay({
+  mode = "contact",
+  albumId,
+  onClose,
+}: {
+  mode?: "contact" | "license";
+  albumId?: string;
+  onClose: () => void;
+}) {
+  const [formData, setFormData] = useState({
+    name: "",
+    company: "",
+    track: "",
+    usage: "",
+    details: "",
+  });
+
+  // Get album data for license mode
+  const album = useMemo(() => {
+    if (!albumId || mode !== "license") return null;
+    const allMusic = getSortedMusic();
+    return allMusic.find((entry) => entry.id === albumId);
+  }, [albumId, mode]);
+
+  // Get album tracks for dropdown
+  const albumTracks = useMemo(() => {
+    if (!albumId) return [];
+    return getAlbumTracks(albumId);
+  }, [albumId]);
+
+  if (mode === "license" && album) {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center bg-black/60 p-6">
+        <div className="w-full max-w-xl rounded-2xl border border-white/15 bg-black/70 p-6 backdrop-blur">
+          <div className="flex items-start justify-between gap-6">
+            <div>
+              <div className="text-lg">License: {album.album}</div>
+              <div className="mt-1 text-sm opacity-70">
+                Optional license enquiry form. Streaming links below.
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              className="rounded-full border border-white/20 px-3 py-1 text-sm hover:border-white/40 hover:bg-white/5"
+            >
+              Esc
+            </button>
+          </div>
+
+          {/* Platform Links - Always visible */}
+          <div className="mt-6 space-y-3 border-b border-white/10 pb-6">
+            <div className="text-sm font-medium opacity-90">Stream / Buy</div>
+            <div className="flex flex-wrap gap-3">
+              {album.spotifyUrl && (
+                <a
+                  href={album.spotifyUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-full border border-white/20 px-4 py-2 text-sm hover:border-white/40 hover:bg-white/5"
+                >
+                  Spotify
+                </a>
+              )}
+              {album.appleMusicUrl && (
+                <a
+                  href={album.appleMusicUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-full border border-white/20 px-4 py-2 text-sm hover:border-white/40 hover:bg-white/5"
+                >
+                  Apple Music
+                </a>
+              )}
+              {album.bandcampUrl && (
+                <a
+                  href={album.bandcampUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-full border border-white/20 px-4 py-2 text-sm hover:border-white/40 hover:bg-white/5"
+                >
+                  Bandcamp
+                </a>
+              )}
+              {album.discoUrl && (
+                <a
+                  href={album.discoUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-full border border-green-400/50 px-4 py-2 text-sm text-green-400 hover:border-green-400 hover:bg-green-400/10 font-medium"
+                >
+                  DISCO
+                </a>
+              )}
+            </div>
+          </div>
+
+          {/* Optional License Form */}
+          <form
+            className="mt-6 grid gap-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              // MVP: no backend yet
+              alert("License enquiry submitted. Next step: hook this to email.");
+              onClose();
+            }}
+          >
+            <input
+              className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-sm outline-none focus:border-white/35"
+              placeholder="Name *"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              required
+            />
+            <input
+              className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-sm outline-none focus:border-white/35"
+              placeholder="Company (optional)"
+              value={formData.company}
+              onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+            />
+            {albumTracks.length > 0 && (
+              <select
+                className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-sm outline-none focus:border-white/35"
+                value={formData.track}
+                onChange={(e) => setFormData({ ...formData, track: e.target.value })}
+              >
+                <option value="">Track (optional)</option>
+                {albumTracks.map((track) => (
+                  <option key={track.id} value={track.name}>
+                    {track.name}
+                  </option>
+                ))}
+              </select>
+            )}
+            <select
+              className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-sm outline-none focus:border-white/35"
+              value={formData.usage}
+              onChange={(e) => setFormData({ ...formData, usage: e.target.value })}
+            >
+              <option value="">Usage (optional)</option>
+              <option value="personal">Personal</option>
+              <option value="online-social">Online / Social</option>
+              <option value="commercial">Commercial</option>
+              <option value="film-tv">Film & TV</option>
+              <option value="game">Game</option>
+              <option value="other">Other</option>
+            </select>
+            <textarea
+              className="min-h-[100px] w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-sm outline-none focus:border-white/35"
+              placeholder="Details (optional)"
+              value={formData.details}
+              onChange={(e) => setFormData({ ...formData, details: e.target.value })}
+            />
+            <div className="mt-2 flex items-center justify-between">
+              <button
+                type="submit"
+                className="rounded-full border border-white/20 px-5 py-2 text-sm hover:border-white/50 hover:bg-white/10"
+              >
+                Send Enquiry
+              </button>
+              <div className="text-xs opacity-60">
+                Form is optional — streaming links above
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  // Contact mode (original)
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black/60 p-6">
       <div className="w-full max-w-xl rounded-2xl border border-white/15 bg-black/70 p-6 backdrop-blur">

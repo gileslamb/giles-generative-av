@@ -1,0 +1,38 @@
+
+> giles-generative-av@0.1.0 build
+> next build
+
+▲ Next.js 16.1.4 (Turbopack)
+
+  Creating an optimized production build ...
+
+> Build error occurred
+Error: Turbopack build failed with 1 errors:
+./src/app/globals.css
+Error evaluating Node.js code
+Error: Cannot find module './util/memoize'
+Require stack:
+- /Users/gileslamb/Desktop/giles-generative-av/node_modules/enhanced-resolve/lib/index.js
+- /Users/gileslamb/Desktop/giles-generative-av/node_modules/@tailwindcss/node/dist/index.js
+- /Users/gileslamb/Desktop/giles-generative-av/node_modules/@tailwindcss/postcss/dist/index.js
+- /Users/gileslamb/Desktop/giles-generative-av/.next/build/chunks/[root-of-the-server]__51225daf._.js
+- /Users/gileslamb/Desktop/giles-generative-av/.next/build/chunks/[turbopack]_runtime.js
+- /Users/gileslamb/Desktop/giles-generative-av/.next/build/postcss.js
+    [at Module._resolveFilename (node:internal/modules/cjs/loader:1207:15)]
+    [at Module._load (node:internal/modules/cjs/loader:1038:27)]
+    [at Module.require (node:internal/modules/cjs/loader:1289:19)]
+    [at require (node:internal/modules/helpers:182:18)]
+    [at Object.<anonymous> (/Users/gileslamb/Desktop/giles-generative-av/node_modules/enhanced-resolve/lib/index.js:8:17)]
+    [at Module._compile (node:internal/modules/cjs/loader:1521:14)]
+    [at Module._extensions..js (node:internal/modules/cjs/loader:1623:10)]
+    [at Module.load (node:internal/modules/cjs/loader:1266:32)]
+    [at Module._load (node:internal/modules/cjs/loader:1091:12)]
+    [at Module.require (node:internal/modules/cjs/loader:1289:19)]
+
+Import trace:
+  Client Component Browser:
+    ./src/app/globals.css [Client Component Browser]
+    ./src/app/layout.tsx [Server Component]
+
+
+    at ignore-listed frames

@@ -7,6 +7,13 @@ export type MusicEntry = {
   description: string;
   featured: boolean;
   sortOrder?: number;
+  // New fields for licensing
+  albumType?: "commercial" | "unreleased" | "library";
+  discoUrl?: string;
+  libraryLicenseUrl?: string;
+  spotifyUrl?: string;
+  appleMusicUrl?: string;
+  bandcampUrl?: string;
 };
 
 export const musicEntries: MusicEntry[] = [
@@ -18,6 +25,11 @@ export const musicEntries: MusicEntry[] = [
     link: "https://gileslamb.bandcamp.com/album/before-the-birds",
     description: "Modern classical album - beautiful",
     featured: true,
+    albumType: "commercial",
+    bandcampUrl: "https://gileslamb.bandcamp.com/album/before-the-birds",
+    spotifyUrl: "https://open.spotify.com/album/example-before-the-birds",
+    appleMusicUrl: "https://music.apple.com/album/before-the-birds/example",
+    discoUrl: "https://disco.ac/example/before-the-birds",
   },
 
   {
@@ -28,6 +40,11 @@ export const musicEntries: MusicEntry[] = [
     link: "https://gileslamb.bandcamp.com/album/glossolalia",
     description: "Modern classical piano and strig ensemble with electronics",
     featured: false,
+    albumType: "commercial",
+    bandcampUrl: "https://gileslamb.bandcamp.com/album/glossolalia",
+    spotifyUrl: "https://open.spotify.com/album/example-glossolalia",
+    appleMusicUrl: "https://music.apple.com/album/glossolalia/example",
+    discoUrl: "https://disco.ac/example/glossolalia",
   },
 
   {
@@ -38,6 +55,11 @@ export const musicEntries: MusicEntry[] = [
     link: "https://gileslamb.bandcamp.com/album/transform",
     description: "Modern classical piano and strig ensemble with electronics",
     featured: true,
+    albumType: "commercial",
+    bandcampUrl: "https://gileslamb.bandcamp.com/album/transform",
+    spotifyUrl: "https://open.spotify.com/album/example-transform",
+    appleMusicUrl: "https://music.apple.com/album/transform/example",
+    discoUrl: "https://disco.ac/example/transform",
   },
 
   {
@@ -48,6 +70,11 @@ export const musicEntries: MusicEntry[] = [
     link: "https://gileslamb.bandcamp.com/album/aoust-oma",
     description: "explores the boundary between modern classical, electronic and ambient music ",
     featured: true,
+    albumType: "commercial",
+    bandcampUrl: "https://gileslamb.bandcamp.com/album/aoust-oma",
+    spotifyUrl: "https://open.spotify.com/album/example-acoust-oma",
+    appleMusicUrl: "https://music.apple.com/album/acoust-oma/example",
+    discoUrl: "https://disco.ac/example/acoust-oma",
   },
 
   {
@@ -58,6 +85,8 @@ export const musicEntries: MusicEntry[] = [
     link: "https://www.universalproductionmusic.com/en-us/discover/albums/14552/more-postcards-from-africa",
     description: "A soundtrack full of African spirit! Joyous, upbeat, optimistic tracks along with some subtle underscores for a journey through Africa. ",
     featured: true,
+    albumType: "library",
+    libraryLicenseUrl: "https://www.universalproductionmusic.com/en-us/discover/albums/14552/more-postcards-from-africa",
   },
 ];
 
