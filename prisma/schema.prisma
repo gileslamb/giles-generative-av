@@ -1,0 +1,86 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Work {
+  id          String   @id @default(cuid())
+  title       String
+  client      String?
+  description String?
+  coverImage  String?
+  mediaUrl    String?
+  link        String?
+  runtime     String?
+  featured    Boolean  @default(false)
+  sortOrder   Int      @default(0)
+  status      String   @default("draft")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model MakingProject {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  coverImage  String?
+  mediaUrl    String?
+  link        String?
+  tags        String?
+  featured    Boolean  @default(false)
+  sortOrder   Int      @default(0)
+  status      String   @default("draft")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Album {
+  id                String   @id @default(cuid())
+  title             String
+  category          String
+  albumType         String?
+  releaseYear       Int?
+  description       String?
+  coverImage        String?
+  spotifyUrl        String?
+  appleMusicUrl     String?
+  bandcampUrl       String?
+  discoUrl          String?
+  libraryLicenseUrl String?
+  featured          Boolean  @default(false)
+  sortOrder         Int      @default(0)
+  status            String   @default("draft")
+  tracks            Track[]
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model Track {
+  id      String @id @default(cuid())
+  name    String
+  url     String
+  order   Int    @default(0)
+  albumId String
+  album   Album  @relation(fields: [albumId], references: [id], onDelete: Cascade)
+}
+
+model QuietRoomEntry {
+  id               String    @id @default(cuid())
+  title            String
+  slug             String    @unique
+  body             String
+  excerpt          String?
+  coverImage       String?
+  audioUrl         String?
+  tags             String?
+  accessTier       String    @default("free")
+  status           String    @default("draft")
+  mirrorToSubstack Boolean   @default(false)
+  publishedAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+}

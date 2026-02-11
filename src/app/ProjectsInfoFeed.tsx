@@ -2,14 +2,16 @@
 
 import type React from "react";
 import { useEffect, useState, useRef } from "react";
-import { getSortedProjects } from "@/content/projects";
+import type { Project } from "@/content/projects";
 
 export default function ProjectsInfoFeed({ 
   onLineTypingStart, 
-  onLineTypingEnd 
+  onLineTypingEnd,
+  projects,
 }: { 
   onLineTypingStart?: () => void;
   onLineTypingEnd?: () => void;
+  projects: Project[];
 }) {
   const [displayedText, setDisplayedText] = useState("");
   const [showCursor, setShowCursor] = useState(false);
@@ -22,7 +24,7 @@ export default function ProjectsInfoFeed({
 
   // Build full text with exact spacing
   useEffect(() => {
-    const projects = getSortedProjects();
+    // projects comes from prop (API or static fallback)
     const lines: string[] = [];
     
     projects.forEach((project, projectIndex) => {
@@ -154,7 +156,7 @@ export default function ProjectsInfoFeed({
         timeLimitRef.current = null;
       }
     };
-  }, [onLineTypingStart, onLineTypingEnd]);
+  }, [onLineTypingStart, onLineTypingEnd, projects]);
 
   // Cursor blink
   useEffect(() => {

@@ -42,3 +42,12 @@ next-env.d.ts
 
 # build logs
 build.log
+
+# prisma SQLite database
+prisma/data/
+
+# uploaded media
+public/uploads/
+
+# keep .env.example tracked
+!.env.example

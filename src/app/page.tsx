@@ -6,8 +6,8 @@ import PointCloud from "./PointCloud";
 import ProjectsInfoFeed from "./ProjectsInfoFeed";
 import MusicInfoFeed from "./MusicInfoFeed";
 import NowPlayingReadout from "./NowPlayingReadout";
-import { getSortedMusic } from "@/content/music";
-import { getAlbumTracks, getSiteTracks, type Track } from "@/content/tracks";
+import { useContent } from "@/lib/useContent";
+import type { Track } from "@/content/tracks";
 
 type Mode = "Listen" | "Works" | "Making" | "Music" | "QuietRoom" | "Contact";
 type ShapeMode = "circular" | "angular";
@@ -80,6 +80,9 @@ const COLOR_PALETTES: Record<ColorPalette, { bg: string; particle: string }> = {
 };
 
 export default function HomePage() {
+  // Database-backed content (falls back to static data on initial render)
+  const content = useContent();
+
   const [mode, setMode] = useState<Mode>("Listen");
   // Fixed initial value to prevent hydration mismatch
   const [trackUrl, setTrackUrl] = useState<string>(TRACKS[0]);
@@ -104,7 +107,7 @@ export default function HomePage() {
   const [audioUnlocked, setAudioUnlocked] = useState(false);
   // Album-scoped playback state
   const [playbackMode, setPlaybackMode] = useState<"site" | "album">("site");
-  const [currentPlaylist, setCurrentPlaylist] = useState<Track[]>(getSiteTracks());
+  const [currentPlaylist, setCurrentPlaylist] = useState<Track[]>(content.siteTracks);
   const [albumContext, setAlbumContext] = useState<{ albumId: string } | undefined>(undefined);
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
 
@@ -127,18 +130,17 @@ export default function HomePage() {
   const [activeSoundscape, setActiveSoundscape] = useState<"forest" | "rain" | "space" | null>(null);
   const soundscapeFadeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Initialize site playlist and select random track
+  // Initialize site playlist and select random track (re-runs when API data loads)
   useEffect(() => {
-    const siteTracks = getSiteTracks();
-    setCurrentPlaylist(siteTracks);
+    const tracks = content.siteTracks;
     // Shuffle site playlist
-    const shuffled = [...siteTracks].sort(() => Math.random() - 0.5);
+    const shuffled = [...tracks].sort(() => Math.random() - 0.5);
     setCurrentPlaylist(shuffled);
     setCurrentTrackIndex(0);
     if (shuffled.length > 0) {
       setTrackUrl(shuffled[0].url);
     }
-  }, []);
+  }, [content.siteTracks]);
 
   // Randomize flockStyle, shapeMode, colorPalette on initial client mount
   useEffect(() => {
@@ -618,8 +620,7 @@ export default function HomePage() {
     setSeed((s) => s + 1);
     
     // Reseed audio: shuffle site playlist and reset to site mode
-    const siteTracks = getSiteTracks();
-    const shuffled = [...siteTracks].sort(() => Math.random() - 0.5);
+    const shuffled = [...content.siteTracks].sort(() => Math.random() - 0.5);
     setCurrentPlaylist(shuffled);
     setCurrentTrackIndex(0);
     setPlaybackMode("site");
@@ -640,8 +641,7 @@ export default function HomePage() {
       
       // If we've reached the end, auto-reseed to site playlist
       if (nextIndex === 0) {
-        const siteTracks = getSiteTracks();
-        const shuffled = [...siteTracks].sort(() => Math.random() - 0.5);
+        const shuffled = [...content.siteTracks].sort(() => Math.random() - 0.5);
         setCurrentPlaylist(shuffled);
         setCurrentTrackIndex(0);
         setPlaybackMode("site");
@@ -660,7 +660,7 @@ export default function HomePage() {
 
   // Function to scope playback to an album
   const scopeToAlbum = (albumId: string) => {
-    const albumTracks = getAlbumTracks(albumId);
+    const albumTracks = content.getAlbumTracks(albumId);
     if (albumTracks.length === 0) return;
     
     // Shuffle album tracks
@@ -755,12 +755,13 @@ export default function HomePage() {
         onNext={nextTrack}
       />
 
-      {/* Selected Works — placeholder */}
+      {/* Selected Works — database-backed */}
       {mode === "Works" && (
         <WorksContent
           key="works-feed"
           onLineTypingStart={startTypingBed}
           onLineTypingEnd={stopTypingBed}
+          works={content.works}
         />
       )}
 
@@ -770,6 +771,7 @@ export default function HomePage() {
           key="making-feed" 
           onLineTypingStart={startTypingBed}
           onLineTypingEnd={stopTypingBed}
+          projects={content.makingProjects}
         />
       )}
 
@@ -782,15 +784,18 @@ export default function HomePage() {
           onLineTypingEnd={stopTypingBed}
           onAlbumClick={scopeToAlbum}
           onLicenseClick={handleLicenseClick}
+          sortedMusic={content.sortedMusic}
         />
       )}
 
-      {/* The Quiet Room — placeholder */}
+      {/* The Quiet Room — database-backed */}
       {mode === "QuietRoom" && (
         <QuietRoomContent
           key="quietroom-feed"
           onLineTypingStart={startTypingBed}
           onLineTypingEnd={stopTypingBed}
+          entries={content.quietRoomEntries}
+          fetchEntry={content.fetchQuietRoomEntry}
         />
       )}
 
@@ -921,6 +926,8 @@ export default function HomePage() {
               setContactMode("contact");
               setLicenseAlbumId(undefined);
             }}
+            sortedMusic={content.sortedMusic}
+            getAlbumTracks={content.getAlbumTracks}
           />
         </div>
       )}
@@ -939,6 +946,7 @@ function MusicSubmenu({
   onLineTypingEnd,
   onAlbumClick,
   onLicenseClick,
+  sortedMusic,
 }: {
   activeSubcategory: MusicSubcategory;
   onSelectSubcategory: (subcategory: MusicSubcategory) => void;
@@ -946,6 +954,7 @@ function MusicSubmenu({
   onLineTypingEnd: () => void;
   onAlbumClick: (albumId: string) => void;
   onLicenseClick: (albumId: string) => void;
+  sortedMusic: import("@/content/music").MusicEntry[];
 }) {
   const subcategories: MusicSubcategory[] = ["Commercial Albums", "Library Music", "Un-Released"];
 
@@ -986,6 +995,7 @@ function MusicSubmenu({
           onLineTypingEnd={onLineTypingEnd}
           onAlbumClick={onAlbumClick}
           onLicenseClick={onLicenseClick}
+          sortedMusic={sortedMusic}
         />
       )}
     </div>
@@ -1000,6 +1010,7 @@ function MusicSubcategoryContent({
   onLineTypingEnd,
   onAlbumClick,
   onLicenseClick,
+  sortedMusic,
 }: {
   subcategory: MusicSubcategory;
   onBack: () => void;
@@ -1007,6 +1018,7 @@ function MusicSubcategoryContent({
   onLineTypingEnd: () => void;
   onAlbumClick: (albumId: string) => void;
   onLicenseClick: (albumId: string) => void;
+  sortedMusic: import("@/content/music").MusicEntry[];
 }) {
   const [displayedText, setDisplayedText] = useState("");
   const [showCursor, setShowCursor] = useState(false);
@@ -1035,8 +1047,7 @@ function MusicSubcategoryContent({
     const categoryFilter = categoryMap[subcategory];
     if (!categoryFilter) return [];
 
-    const allMusic = getSortedMusic();
-    return allMusic
+    return sortedMusic
       .filter((entry) => entry.category === categoryFilter)
       .map((entry) => ({
         id: entry.id,
@@ -1051,7 +1062,7 @@ function MusicSubcategoryContent({
         appleMusicUrl: entry.appleMusicUrl,
         bandcampUrl: entry.bandcampUrl,
       }));
-  }, [subcategory]);
+  }, [subcategory, sortedMusic]);
 
   // Stable key: typing runs ONLY when album set changes (not on link/panel/audio state)
   const contentKey = useMemo(
@@ -1388,10 +1399,14 @@ function ContactOverlay({
   mode = "contact",
   albumId,
   onClose,
+  sortedMusic,
+  getAlbumTracks,
 }: {
   mode?: "contact" | "license";
   albumId?: string;
   onClose: () => void;
+  sortedMusic: import("@/content/music").MusicEntry[];
+  getAlbumTracks: (albumId: string) => import("@/content/tracks").Track[];
 }) {
   const [formData, setFormData] = useState({
     name: "",
@@ -1404,15 +1419,14 @@ function ContactOverlay({
   // Get album data for license mode
   const album = useMemo(() => {
     if (!albumId || mode !== "license") return null;
-    const allMusic = getSortedMusic();
-    return allMusic.find((entry) => entry.id === albumId);
-  }, [albumId, mode]);
+    return sortedMusic.find((entry) => entry.id === albumId);
+  }, [albumId, mode, sortedMusic]);
 
   // Get album tracks for dropdown
   const albumTracks = useMemo(() => {
     if (!albumId) return [];
     return getAlbumTracks(albumId);
-  }, [albumId]);
+  }, [albumId, getAlbumTracks]);
 
   if (mode === "license" && album) {
     return (
@@ -1619,13 +1633,15 @@ function ContactOverlay({
   );
 }
 
-/** SELECTED WORKS — placeholder typewriter feed */
+/** SELECTED WORKS — database-backed typewriter feed */
 function WorksContent({
   onLineTypingStart,
   onLineTypingEnd,
+  works,
 }: {
   onLineTypingStart: () => void;
   onLineTypingEnd: () => void;
+  works: import("@/content/projects").Project[];
 }) {
   const [displayedText, setDisplayedText] = useState("");
   const [showCursor, setShowCursor] = useState(false);
@@ -1633,30 +1649,37 @@ function WorksContent({
   const currentIndexRef = useRef(0);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isTypingActiveRef = useRef(false);
-  const [lastAnimatedKey] = useState("works-v1");
   const hasAnimatedRef = useRef(false);
   const onLineTypingStartRef = useRef(onLineTypingStart);
   const onLineTypingEndRef = useRef(onLineTypingEnd);
   onLineTypingStartRef.current = onLineTypingStart;
   onLineTypingEndRef.current = onLineTypingEnd;
 
+  // Build content key from works data so animation re-triggers when data changes
+  const contentKey = useMemo(() => works.map((w) => w.id).join(","), [works]);
+
   useEffect(() => {
-    const lines = [
-      "Selected Works",
-      "",
-      "Craft shaped by collaboration and trust.",
-      "",
-      "Includes:",
-      "  Film & TV Scores",
-      "  Trailer Music",
-      "  Animation & Games",
-      "  Immersive & Spatial Audio",
-      "  Sound Design",
-      "",
-      "Content coming soon — projects database in progress.",
-      "",
-      "For enquiries, visit Contact.",
-    ];
+    const lines: string[] = [];
+    lines.push("Selected Works");
+    lines.push("");
+    lines.push("Craft shaped by collaboration and trust.");
+    lines.push("");
+
+    if (works.length > 0) {
+      works.forEach((work, i) => {
+        if (i > 0) {
+          lines.push("");
+          lines.push("");
+        }
+        lines.push(`Name: ${work.name}`);
+        if (work.client) lines.push(`Client: ${work.client}`);
+        if (work.runtime) lines.push(`Runtime: ${work.runtime}`);
+        if (work.description) lines.push(`Info: ${work.description}`);
+        if (work.link) lines.push(`Link: ${work.link}`);
+      });
+    } else {
+      lines.push("Content coming soon.");
+    }
 
     const fullText = lines.join("\n");
     fullTextRef.current = fullText;
@@ -1709,7 +1732,7 @@ function WorksContent({
       isTypingActiveRef.current = false;
       if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null; }
     };
-  }, [lastAnimatedKey]);
+  }, [contentKey]);
 
   useEffect(() => {
     if (!showCursor) return;
@@ -1721,7 +1744,14 @@ function WorksContent({
     return displayedText.split("\n").map((line, i) => {
       if (line === "") return <div key={i} className="h-4" />;
       if (line === "Selected Works") return <div key={i} className="text-white/90 mb-1">{line}</div>;
-      if (line.startsWith("  ")) return <div key={i} className="text-green-400/80 ml-4">{line.trim()}</div>;
+      if (line.startsWith("Name: ")) return <div key={i} className="flex items-baseline gap-2"><span className="text-white/50">Name:</span><span className="text-red-400">{line.substring(6)}</span></div>;
+      if (line.startsWith("Client: ")) return <div key={i} className="flex items-baseline gap-2"><span className="text-white/50">Client:</span><span className="text-white">{line.substring(8)}</span></div>;
+      if (line.startsWith("Runtime: ")) return <div key={i} className="flex items-baseline gap-2"><span className="text-white/50">Runtime:</span><span className="text-white">{line.substring(9)}</span></div>;
+      if (line.startsWith("Info: ")) return <div key={i} className="flex items-baseline gap-2"><span className="text-white/50">Info:</span><span className="text-white">{line.substring(6)}</span></div>;
+      if (line.startsWith("Link: ")) {
+        const url = line.substring(6);
+        return <div key={i} className="flex items-baseline gap-2"><span className="text-white/50">Link:</span><a href={url} target="_blank" rel="noopener noreferrer" className="text-green-400 hover:text-green-300 transition-colors">{url}</a></div>;
+      }
       return <div key={i} className="text-white/60">{line}</div>;
     });
   };
@@ -1736,6 +1766,8 @@ function WorksContent({
         textShadow: "0 0 8px rgba(255, 255, 255, 0.15)",
         maxWidth: "700px",
         letterSpacing: "0.01em",
+        maxHeight: "calc(100vh - 180px)",
+        overflowY: "auto",
       }}
     >
       <div className="space-y-0.5">
@@ -1746,113 +1778,108 @@ function WorksContent({
   );
 }
 
-/** THE QUIET ROOM — placeholder typewriter feed */
+/** THE QUIET ROOM — database-backed with article view */
 function QuietRoomContent({
   onLineTypingStart,
   onLineTypingEnd,
+  entries,
+  fetchEntry,
 }: {
   onLineTypingStart: () => void;
   onLineTypingEnd: () => void;
+  entries: import("@/lib/useContent").QuietRoomEntry[];
+  fetchEntry: (slug: string) => Promise<import("@/lib/useContent").QuietRoomFull | null>;
 }) {
-  const [displayedText, setDisplayedText] = useState("");
-  const [showCursor, setShowCursor] = useState(false);
-  const fullTextRef = useRef("");
-  const currentIndexRef = useRef(0);
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isTypingActiveRef = useRef(false);
-  const [lastAnimatedKey] = useState("quietroom-v1");
-  const hasAnimatedRef = useRef(false);
-  const onLineTypingStartRef = useRef(onLineTypingStart);
-  const onLineTypingEndRef = useRef(onLineTypingEnd);
-  onLineTypingStartRef.current = onLineTypingStart;
-  onLineTypingEndRef.current = onLineTypingEnd;
+  const [activeEntry, setActiveEntry] = useState<import("@/lib/useContent").QuietRoomFull | null>(null);
+  const [loadingSlug, setLoadingSlug] = useState<string | null>(null);
 
-  useEffect(() => {
-    const lines = [
-      "The Quiet Room",
-      "",
-      "Thought, reflection, the space between notes.",
-      "",
-      "Writings, works in progress, audio journal.",
-      "",
-      "Entries:",
-      "  (coming soon)",
-      "",
-      "Some entries free. Some for subscribers.",
-      "Also mirrored on Substack.",
-      "",
-      "Content database and membership in progress.",
-    ];
-
-    const fullText = lines.join("\n");
-    fullTextRef.current = fullText;
-
-    if (hasAnimatedRef.current) {
-      setDisplayedText(fullText);
-      setShowCursor(true);
-      return;
-    }
-
-    hasAnimatedRef.current = true;
-    currentIndexRef.current = 0;
-    setDisplayedText("");
-    setShowCursor(false);
-
-    let currentLineIndex = -1;
-    let lastCharWasNewline = false;
-
-    const startTyping = () => {
-      if (!isTypingActiveRef.current) return;
-      if (currentIndexRef.current >= fullTextRef.current.length) {
-        isTypingActiveRef.current = false;
-        setShowCursor(true);
-        if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null; }
-        if (currentLineIndex >= 0) onLineTypingEndRef.current();
-        return;
-      }
-      const char = fullTextRef.current[currentIndexRef.current];
-      const isNewline = char === "\n";
-      if (lastCharWasNewline || currentIndexRef.current === 0) {
-        if (currentLineIndex >= 0) onLineTypingEndRef.current();
-        currentLineIndex++;
-        onLineTypingStartRef.current();
-      }
-      if (isNewline && currentLineIndex >= 0) onLineTypingEndRef.current();
-      lastCharWasNewline = isNewline;
-      const delay = 7 + Math.random() * 6;
-      timeoutRef.current = setTimeout(() => {
-        if (!isTypingActiveRef.current) return;
-        currentIndexRef.current += 1;
-        setDisplayedText(fullTextRef.current.substring(0, currentIndexRef.current));
-        startTyping();
-      }, delay);
-    };
-
-    isTypingActiveRef.current = true;
-    startTyping();
-
-    return () => {
-      isTypingActiveRef.current = false;
-      if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null; }
-    };
-  }, [lastAnimatedKey]);
-
-  useEffect(() => {
-    if (!showCursor) return;
-    const interval = setInterval(() => setShowCursor((p) => !p), 530);
-    return () => clearInterval(interval);
-  }, [showCursor]);
-
-  const renderText = () => {
-    return displayedText.split("\n").map((line, i) => {
-      if (line === "") return <div key={i} className="h-4" />;
-      if (line === "The Quiet Room") return <div key={i} className="text-white/90 mb-1">{line}</div>;
-      if (line.startsWith("  ")) return <div key={i} className="text-green-400/80 ml-4">{line.trim()}</div>;
-      if (line.startsWith("Entries:")) return <div key={i} className="text-white/50">{line}</div>;
-      return <div key={i} className="text-white/60">{line}</div>;
-    });
+  const handleEntryClick = async (slug: string) => {
+    setLoadingSlug(slug);
+    const entry = await fetchEntry(slug);
+    setActiveEntry(entry);
+    setLoadingSlug(null);
   };
 
+  // Article view
+  if (activeEntry) {
+    return (
+      <div
+        className="fixed left-6 top-[140px] z-10 pointer-events-auto"
+        style={{
+          fontFamily: "var(--font-jetbrains-mono), ui-monospace, monospace",
+          fontSize: "13px",
+          lineHeight: "1.7",
+          textShadow: "0 0 8px rgba(255, 255, 255, 0.15)",
+          maxWidth: "700px",
+          letterSpacing: "0.01em",
+          maxHeight: "calc(100vh - 180px)",
+          overflowY: "auto",
+        }}
+      >
+        <button
+          onClick={() => setActiveEntry(null)}
+          className="text-white/50 hover:text-white/80 transition-colors mb-4 block"
+        >
+          ← Back
+        </button>
+
+        <h2 className="text-white/90 text-lg mb-1">{activeEntry.title}</h2>
+
+        {activeEntry.accessTier === "subscriber" && (
+          <span className="inline-block text-xs px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 mb-2">
+            subscriber
+          </span>
+        )}
+
+        {activeEntry.publishedAt && (
+          <div className="text-white/30 text-xs mb-4">
+            {new Date(activeEntry.publishedAt).toLocaleDateString("en-GB", {
+              day: "numeric",
+              month: "long",
+              year: "numeric",
+            })}
+          </div>
+        )}
+
+        {activeEntry.coverImage && (
+          <img
+            src={activeEntry.coverImage}
+            alt={activeEntry.title}
+            className="w-full max-w-md rounded border border-white/10 mb-4"
+          />
+        )}
+
+        {activeEntry.audioUrl && (
+          <audio
+            controls
+            src={activeEntry.audioUrl}
+            className="w-full max-w-md mb-4 opacity-80"
+          />
+        )}
+
+        <div
+          className="prose prose-invert prose-sm max-w-none text-white/70"
+          style={{ fontFamily: "var(--font-geist-sans), sans-serif", fontSize: "14px", lineHeight: "1.8" }}
+          dangerouslySetInnerHTML={{ __html: activeEntry.body }}
+        />
+
+        {activeEntry.tags && (
+          <div className="mt-6 flex flex-wrap gap-2">
+            {activeEntry.tags.split(",").map((tag) => (
+              <span
+                key={tag.trim()}
+                className="text-xs px-2 py-0.5 rounded bg-white/5 text-white/40 border border-white/10"
+              >
+                {tag.trim()}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // List view
   return (
     <div
       className="fixed left-6 top-[140px] z-10 pointer-events-auto"
@@ -1863,11 +1890,68 @@ function QuietRoomContent({
         textShadow: "0 0 8px rgba(255, 255, 255, 0.15)",
         maxWidth: "700px",
         letterSpacing: "0.01em",
+        maxHeight: "calc(100vh - 180px)",
+        overflowY: "auto",
       }}
     >
-      <div className="space-y-0.5">
-        {renderText()}
-        {showCursor && <span className="inline-block w-2 h-4 bg-white/80 ml-1 animate-pulse" />}
+      <div className="text-white/90 mb-1">The Quiet Room</div>
+      <div className="h-4" />
+      <div className="text-white/60 mb-4">
+        Thought, reflection, the space between notes.
+      </div>
+
+      {entries.length > 0 ? (
+        <div className="space-y-4">
+          {entries.map((entry) => (
+            <button
+              key={entry.id}
+              onClick={() => handleEntryClick(entry.slug)}
+              disabled={loadingSlug === entry.slug}
+              className="block w-full text-left group transition-all duration-200"
+            >
+              <div className="flex items-start gap-3">
+                {entry.coverImage && (
+                  <img
+                    src={entry.coverImage}
+                    alt=""
+                    className="w-16 h-16 rounded border border-white/10 object-cover flex-shrink-0 group-hover:border-white/30 transition-colors"
+                  />
+                )}
+                <div className="min-w-0">
+                  <div className="text-green-400/80 group-hover:text-green-300 transition-colors flex items-center gap-2">
+                    {loadingSlug === entry.slug ? "Loading..." : entry.title}
+                    {entry.accessTier === "subscriber" && (
+                      <span className="text-xs px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                        sub
+                      </span>
+                    )}
+                  </div>
+                  {entry.excerpt && (
+                    <div className="text-white/40 text-xs mt-0.5 line-clamp-2">
+                      {entry.excerpt}
+                    </div>
+                  )}
+                  {entry.publishedAt && (
+                    <div className="text-white/20 text-xs mt-0.5">
+                      {new Date(entry.publishedAt).toLocaleDateString("en-GB", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <div className="text-white/40">Entries coming soon.</div>
+      )}
+
+      <div className="h-4" />
+      <div className="text-white/40 text-xs">
+        Some entries free. Some for subscribers.
       </div>
     </div>
   );
