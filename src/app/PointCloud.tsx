@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 
-type Mode = "Listen" | "Watch" | "Feel" | "Commission" | "Contact" | "Rain";
+type Mode = "Listen" | "Works" | "Making" | "Music" | "QuietRoom" | "Contact";
 
 type P = {
   x: number;
@@ -16,17 +16,18 @@ type P = {
 
 function params(mode: Mode) {
   switch (mode) {
-    case "Feel":
+    case "Music":
       return { n: 7800, drift: 0.9, jitter: 0.55 };
     case "Listen":
       return { n: 6600, drift: 0.75, jitter: 0.35 };
-    case "Watch":
-      return { n: 4800, drift: 1.0, jitter: 0.25 };
+    case "Works":
+      return { n: 4800, drift: 0.60, jitter: 0.15 }; // calm, precise
+    case "Making":
+      return { n: 5800, drift: 1.1, jitter: 0.60 }; // energetic, creative chaos
+    case "QuietRoom":
+      return { n: 3800, drift: 0.45, jitter: 0.10 }; // sparse, slow, contemplative
     case "Contact":
       return { n: 4200, drift: 0.65, jitter: 0.15 };
-    case "Rain":
-      // Rain mode uses streaming emitter, params not used but required
-      return { n: 0, drift: 0.1, jitter: 0.05 };
   }
 }
 
@@ -283,16 +284,22 @@ export default function PointCloud({
       } else {
         // Space: use page mode behavior
         if (mode === "Listen") {
-          modeCohesion = 1.3; // Tighten murmuration
+          modeCohesion = 1.3;
           modeBehavior = "murmuration";
-        } else if (mode === "Watch") {
-          modeFlowLateral = 1.4; // More lateral/exploratory flow
-          modeBehavior = "vortex"; // Vortex swirl around center
-        } else if (mode === "Feel") {
-          modeAlphaBoost = 1.15; // Increase alpha + warmth
-          modeBehavior = "rain"; // Downward drift, respawn at top
+        } else if (mode === "Making") {
+          modeFlowLateral = 1.4;
+          modeBehavior = "vortex"; // Energetic swirl
+        } else if (mode === "Music") {
+          modeAlphaBoost = 1.15;
+          modeBehavior = "rain"; // Downward drift
+        } else if (mode === "Works") {
+          modeCohesion = 1.2;
+          modeBehavior = "murmuration"; // Calm, precise
+        } else if (mode === "QuietRoom") {
+          modeAlphaBoost = 1.05;
+          modeBehavior = "murmuration"; // Sparse, contemplative
         } else {
-          modeBehavior = "murmuration"; // Commission, Contact use baseline
+          modeBehavior = "murmuration"; // Contact uses baseline
         }
       }
 
@@ -386,7 +393,7 @@ export default function PointCloud({
         const flowTime = time * 0.25; // Even slower time scale
         
         // Multi-layer flow field for organic, current-like movement
-        // Apply lateral adjustment for "Watch" mode
+        // Apply lateral adjustment for "Making" mode
         const lateralScale = modeFlowLateral;
         const flowX1 = Math.sin(p.x * 0.0018 + flowTime) * flowStrength * lateralScale;
         const flowY1 = Math.cos(p.y * 0.0018 + flowTime * 1.1) * flowStrength;
@@ -532,7 +539,7 @@ export default function PointCloud({
         const audioSizeBoost = 1.0 + currentEnergy * 0.3; // 0-30% size increase
         
         // Alpha + radius with bloom and audio reactivity
-        // Apply mode alpha boost for "Feel" mode
+        // Apply mode alpha boost for "Music" mode
         const a = Math.min(1, p.a * (0.40 + intensity * 2.4) * modeAlphaBoost * audioBoost);
         const baseR = p.r * (0.70 + intensity * 1.3);
         const r = baseR * audioSizeBoost; // Audio modulates size slightly

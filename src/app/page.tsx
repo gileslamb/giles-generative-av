@@ -9,7 +9,7 @@ import NowPlayingReadout from "./NowPlayingReadout";
 import { getSortedMusic } from "@/content/music";
 import { getAlbumTracks, getSiteTracks, type Track } from "@/content/tracks";
 
-type Mode = "Listen" | "Watch" | "Feel" | "Contact" | "Rain";
+type Mode = "Listen" | "Works" | "Making" | "Music" | "QuietRoom" | "Contact";
 type ShapeMode = "circular" | "angular";
 type ColorPalette = "charcoal" | "blue" | "green" | "umber";
 type MusicSubcategory = "Commercial Albums" | "Library Music" | "Un-Released" | null;
@@ -21,8 +21,19 @@ const TRACKS = [
   "/audio/September.wav",
 ];
 
-// A gentle, human palette: verbs not sections.
-const MODES: Mode[] = ["Listen", "Watch", "Feel", "Contact"];
+// Navigation clusters
+const NAV_LEFT: Mode[] = ["Works", "Making"];
+const NAV_RIGHT: Mode[] = ["Music", "QuietRoom", "Contact"];
+
+// Display names for nav buttons
+const MODE_DISPLAY_NAMES: Record<Mode, string> = {
+  Listen: "Listen",
+  Works: "Selected Works",
+  Making: "Making",
+  Music: "Music",
+  QuietRoom: "The Quiet Room",
+  Contact: "Contact",
+};
 
 function pickRandom<T>(arr: T[]) {
   return arr[Math.floor(Math.random() * arr.length)];
@@ -39,22 +50,13 @@ function pickWeighted<T extends { weight: number }>(items: T[]): T {
 }
 
 // Mode-specific breathing text content
-// Note: "Home" mode maps to "Listen" in the code
 const MODE_TEXTS: Record<Mode, string> = {
-  Listen: "Music, sound, atmosphere in space.", // Home mode
-  Watch: "Sound is half the picture.",
-  Feel: "Listening is a lifetime practice.",
+  Listen: "Music, sound, atmosphere in space.",
+  Works: "Craft shaped by collaboration and trust.",
+  Making: "Process as practice. Experiments in progress.",
+  Music: "Listening is a lifetime practice.",
+  QuietRoom: "Thought, reflection, the space between notes.",
   Contact: "Open to selective collaborations.",
-  Rain: "",
-};
-
-// Mode display names for UI (labels only, routes unchanged)
-const MODE_DISPLAY_NAMES: Record<Mode, string> = {
-  Listen: "Listen",
-  Watch: "Projects",
-  Feel: "Music",
-  Contact: "Contact",
-  Rain: "Rain",
 };
 
 // Color palette families
@@ -690,7 +692,7 @@ export default function HomePage() {
 
   // Clear music subcategory when switching away from Music mode
   useEffect(() => {
-    if (mode !== "Feel") {
+    if (mode !== "Music") {
       setMusicSubcategory(null);
     }
   }, [mode]);
@@ -753,17 +755,26 @@ export default function HomePage() {
         onNext={nextTrack}
       />
 
-      {/* Projects info feed - only visible in Watch/Projects mode */}
-      {mode === "Watch" && (
-        <ProjectsInfoFeed 
-          key="projects-feed" 
+      {/* Selected Works — placeholder */}
+      {mode === "Works" && (
+        <WorksContent
+          key="works-feed"
           onLineTypingStart={startTypingBed}
           onLineTypingEnd={stopTypingBed}
         />
       )}
 
-      {/* Music submenu or content - only visible in Feel/Music mode */}
-      {mode === "Feel" && (
+      {/* Making — active projects feed */}
+      {mode === "Making" && (
+        <ProjectsInfoFeed 
+          key="making-feed" 
+          onLineTypingStart={startTypingBed}
+          onLineTypingEnd={stopTypingBed}
+        />
+      )}
+
+      {/* Music submenu or content */}
+      {mode === "Music" && (
         <MusicSubmenu
           activeSubcategory={musicSubcategory}
           onSelectSubcategory={setMusicSubcategory}
@@ -774,18 +785,28 @@ export default function HomePage() {
         />
       )}
 
-      {/* Bottom nav (verbs) - Content layer above pixelation */}
-      <div className="fixed bottom-6 left-6 right-6 z-20 flex flex-wrap items-center gap-3 pointer-events-auto">
-        <div className="flex flex-wrap gap-2">
-          {MODES.map((m) => (
+      {/* The Quiet Room — placeholder */}
+      {mode === "QuietRoom" && (
+        <QuietRoomContent
+          key="quietroom-feed"
+          onLineTypingStart={startTypingBed}
+          onLineTypingEnd={stopTypingBed}
+        />
+      )}
+
+      {/* Bottom nav — [Left cluster] [Transport] [Right cluster] */}
+      <div className="fixed bottom-6 left-6 right-6 z-20 flex items-center justify-between pointer-events-auto">
+        {/* Left cluster: Selected Works, Making — "the doing" — full weight */}
+        <div className="flex items-center gap-2">
+          {NAV_LEFT.map((m) => (
             <button
               key={m}
               onClick={() => setMode(m)}
               className={[
-                "rounded-full border px-4 py-2 text-sm transition pointer-events-auto relative z-20",
+                "rounded-full border px-4 py-2 text-sm transition",
                 m === mode
-                  ? "border-white/70 bg-white/10"
-                  : "border-white/20 bg-white/0 hover:border-white/40 hover:bg-white/5",
+                  ? "border-white/70 bg-white/10 font-medium"
+                  : "border-white/25 bg-white/0 hover:border-white/50 hover:bg-white/5 font-medium",
               ].join(" ")}
             >
               {MODE_DISPLAY_NAMES[m]}
@@ -793,87 +814,99 @@ export default function HomePage() {
           ))}
         </div>
 
-        <div className="ml-auto flex items-center gap-2">
+        {/* Center: Transport + Listen + scene toggles */}
+        <div className="flex items-center gap-2 mx-6">
           <button
             onClick={() => {
-              console.log("PLAY clicked");
-              // Enable audio if not already enabled
               if (!audioEnabled) {
                 setAudioEnabled(true);
-                if (!userGestureArmed) {
-                  setUserGestureArmed(true);
-                }
+                if (!userGestureArmed) setUserGestureArmed(true);
               }
               setIsPlaying((p) => !p);
             }}
-            className="rounded-full border border-white/20 px-4 py-2 text-sm hover:border-white/40 hover:bg-white/5 pointer-events-auto relative z-20"
+            className="rounded-full border border-white/20 px-4 py-2 text-sm hover:border-white/40 hover:bg-white/5"
           >
             {isPlaying ? "Pause" : "Play"}
           </button>
           <button
-            onClick={() => {
-              console.log(isMuted ? "UNMUTE clicked" : "MUTE clicked");
-              setIsMuted((m) => !m);
-            }}
-            className="rounded-full border border-white/20 px-4 py-2 text-sm hover:border-white/40 hover:bg-white/5 pointer-events-auto relative z-20"
+            onClick={() => setIsMuted((m) => !m)}
+            className="rounded-full border border-white/20 px-4 py-2 text-sm hover:border-white/40 hover:bg-white/5"
           >
             {isMuted ? "Unmute" : "Mute"}
           </button>
           <button
-            onClick={() => {
-              console.log("RESEED clicked");
-              reseed();
-            }}
-            className="rounded-full border border-white/20 px-4 py-2 text-sm hover:border-white/40 hover:bg-white/5 pointer-events-auto relative z-20"
+            onClick={() => reseed()}
+            className="rounded-full border border-white/20 px-4 py-2 text-sm hover:border-white/40 hover:bg-white/5"
             title="New visual + new track"
           >
             Reseed
           </button>
           <button
-            onClick={() => {
-              console.log("SPACE clicked");
-              setBackgroundScene("space");
-            }}
+            onClick={() => setMode("Listen")}
             className={[
-              "rounded-full border px-4 py-2 text-sm hover:border-white/40 hover:bg-white/5 pointer-events-auto relative z-20",
-              backgroundScene === "space"
+              "rounded-full border px-3 py-2 text-sm transition",
+              mode === "Listen"
                 ? "border-white/70 bg-white/10"
-                : "border-white/20 bg-white/0",
+                : "border-white/20 bg-white/0 hover:border-white/40 hover:bg-white/5",
             ].join(" ")}
-            title="Space background mode"
+            title="Home"
           >
-            Space
+            Listen
           </button>
-          <button
-            onClick={() => {
-              console.log("RAIN clicked");
-              setBackgroundScene("rain");
-            }}
-            className={[
-              "rounded-full border px-4 py-2 text-sm hover:border-white/40 hover:bg-white/5 pointer-events-auto relative z-20",
-              backgroundScene === "rain"
-                ? "border-white/70 bg-white/10"
-                : "border-white/20 bg-white/0",
-            ].join(" ")}
-            title="Rain background mode"
-          >
-            Rain
-          </button>
-          <button
-            onClick={() => {
-              console.log("FOREST clicked");
-              setBackgroundScene("forest");
-            }}
-            className={[
-              "rounded-full border px-4 py-2 text-sm hover:border-white/40 hover:bg-white/5 pointer-events-auto relative z-20",
-              backgroundScene === "forest"
-                ? "border-white/70 bg-white/10"
-                : "border-white/20 bg-white/0",
-            ].join(" ")}
-            title="Forest background mode"
-          >
-            Forest
-          </button>
+          <span className="mx-1 text-white/15">·</span>
+          {(["space", "rain", "forest"] as const).map((scene) => (
+            <button
+              key={scene}
+              onClick={() => setBackgroundScene(scene)}
+              className={[
+                "rounded-full border px-3 py-1.5 text-xs transition",
+                backgroundScene === scene
+                  ? "border-white/50 bg-white/10"
+                  : "border-white/15 bg-white/0 hover:border-white/30 hover:bg-white/5",
+              ].join(" ")}
+              title={`${scene} scene`}
+            >
+              {scene.charAt(0).toUpperCase() + scene.slice(1)}
+            </button>
+          ))}
+        </div>
+
+        {/* Right cluster: Music, The Quiet Room, Contact — "the listening/thinking" — lighter weight */}
+        <div className="flex items-center gap-2">
+          {NAV_RIGHT.map((m) => {
+            // Contact renders as a small icon
+            if (m === "Contact") {
+              return (
+                <button
+                  key={m}
+                  onClick={() => setMode(m)}
+                  className={[
+                    "rounded-full border px-3 py-2 text-sm transition opacity-70 hover:opacity-100",
+                    m === mode
+                      ? "border-white/60 bg-white/10"
+                      : "border-white/15 bg-white/0 hover:border-white/35 hover:bg-white/5",
+                  ].join(" ")}
+                  title="Contact"
+                >
+                  ✉
+                </button>
+              );
+            }
+            return (
+              <button
+                key={m}
+                onClick={() => setMode(m)}
+                className={[
+                  "rounded-full border px-4 py-2 text-sm transition font-light",
+                  m === mode
+                    ? "border-white/60 bg-white/10 opacity-100"
+                    : "border-white/15 bg-white/0 hover:border-white/35 hover:bg-white/5 opacity-80 hover:opacity-100",
+                ].join(" ")}
+              >
+                {MODE_DISPLAY_NAMES[m]}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -1581,6 +1614,260 @@ function ContactOverlay({
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+/** SELECTED WORKS — placeholder typewriter feed */
+function WorksContent({
+  onLineTypingStart,
+  onLineTypingEnd,
+}: {
+  onLineTypingStart: () => void;
+  onLineTypingEnd: () => void;
+}) {
+  const [displayedText, setDisplayedText] = useState("");
+  const [showCursor, setShowCursor] = useState(false);
+  const fullTextRef = useRef("");
+  const currentIndexRef = useRef(0);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isTypingActiveRef = useRef(false);
+  const [lastAnimatedKey] = useState("works-v1");
+  const hasAnimatedRef = useRef(false);
+  const onLineTypingStartRef = useRef(onLineTypingStart);
+  const onLineTypingEndRef = useRef(onLineTypingEnd);
+  onLineTypingStartRef.current = onLineTypingStart;
+  onLineTypingEndRef.current = onLineTypingEnd;
+
+  useEffect(() => {
+    const lines = [
+      "Selected Works",
+      "",
+      "Craft shaped by collaboration and trust.",
+      "",
+      "Includes:",
+      "  Film & TV Scores",
+      "  Trailer Music",
+      "  Animation & Games",
+      "  Immersive & Spatial Audio",
+      "  Sound Design",
+      "",
+      "Content coming soon — projects database in progress.",
+      "",
+      "For enquiries, visit Contact.",
+    ];
+
+    const fullText = lines.join("\n");
+    fullTextRef.current = fullText;
+
+    if (hasAnimatedRef.current) {
+      setDisplayedText(fullText);
+      setShowCursor(true);
+      return;
+    }
+
+    hasAnimatedRef.current = true;
+    currentIndexRef.current = 0;
+    setDisplayedText("");
+    setShowCursor(false);
+
+    let currentLineIndex = -1;
+    let lastCharWasNewline = false;
+
+    const startTyping = () => {
+      if (!isTypingActiveRef.current) return;
+      if (currentIndexRef.current >= fullTextRef.current.length) {
+        isTypingActiveRef.current = false;
+        setShowCursor(true);
+        if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null; }
+        if (currentLineIndex >= 0) onLineTypingEndRef.current();
+        return;
+      }
+      const char = fullTextRef.current[currentIndexRef.current];
+      const isNewline = char === "\n";
+      if (lastCharWasNewline || currentIndexRef.current === 0) {
+        if (currentLineIndex >= 0) onLineTypingEndRef.current();
+        currentLineIndex++;
+        onLineTypingStartRef.current();
+      }
+      if (isNewline && currentLineIndex >= 0) onLineTypingEndRef.current();
+      lastCharWasNewline = isNewline;
+      const delay = 7 + Math.random() * 6;
+      timeoutRef.current = setTimeout(() => {
+        if (!isTypingActiveRef.current) return;
+        currentIndexRef.current += 1;
+        setDisplayedText(fullTextRef.current.substring(0, currentIndexRef.current));
+        startTyping();
+      }, delay);
+    };
+
+    isTypingActiveRef.current = true;
+    startTyping();
+
+    return () => {
+      isTypingActiveRef.current = false;
+      if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null; }
+    };
+  }, [lastAnimatedKey]);
+
+  useEffect(() => {
+    if (!showCursor) return;
+    const interval = setInterval(() => setShowCursor((p) => !p), 530);
+    return () => clearInterval(interval);
+  }, [showCursor]);
+
+  const renderText = () => {
+    return displayedText.split("\n").map((line, i) => {
+      if (line === "") return <div key={i} className="h-4" />;
+      if (line === "Selected Works") return <div key={i} className="text-white/90 mb-1">{line}</div>;
+      if (line.startsWith("  ")) return <div key={i} className="text-green-400/80 ml-4">{line.trim()}</div>;
+      return <div key={i} className="text-white/60">{line}</div>;
+    });
+  };
+
+  return (
+    <div
+      className="fixed left-6 top-[140px] z-10 pointer-events-auto"
+      style={{
+        fontFamily: "var(--font-jetbrains-mono), ui-monospace, monospace",
+        fontSize: "13px",
+        lineHeight: "1.7",
+        textShadow: "0 0 8px rgba(255, 255, 255, 0.15)",
+        maxWidth: "700px",
+        letterSpacing: "0.01em",
+      }}
+    >
+      <div className="space-y-0.5">
+        {renderText()}
+        {showCursor && <span className="inline-block w-2 h-4 bg-white/80 ml-1 animate-pulse" />}
+      </div>
+    </div>
+  );
+}
+
+/** THE QUIET ROOM — placeholder typewriter feed */
+function QuietRoomContent({
+  onLineTypingStart,
+  onLineTypingEnd,
+}: {
+  onLineTypingStart: () => void;
+  onLineTypingEnd: () => void;
+}) {
+  const [displayedText, setDisplayedText] = useState("");
+  const [showCursor, setShowCursor] = useState(false);
+  const fullTextRef = useRef("");
+  const currentIndexRef = useRef(0);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isTypingActiveRef = useRef(false);
+  const [lastAnimatedKey] = useState("quietroom-v1");
+  const hasAnimatedRef = useRef(false);
+  const onLineTypingStartRef = useRef(onLineTypingStart);
+  const onLineTypingEndRef = useRef(onLineTypingEnd);
+  onLineTypingStartRef.current = onLineTypingStart;
+  onLineTypingEndRef.current = onLineTypingEnd;
+
+  useEffect(() => {
+    const lines = [
+      "The Quiet Room",
+      "",
+      "Thought, reflection, the space between notes.",
+      "",
+      "Writings, works in progress, audio journal.",
+      "",
+      "Entries:",
+      "  (coming soon)",
+      "",
+      "Some entries free. Some for subscribers.",
+      "Also mirrored on Substack.",
+      "",
+      "Content database and membership in progress.",
+    ];
+
+    const fullText = lines.join("\n");
+    fullTextRef.current = fullText;
+
+    if (hasAnimatedRef.current) {
+      setDisplayedText(fullText);
+      setShowCursor(true);
+      return;
+    }
+
+    hasAnimatedRef.current = true;
+    currentIndexRef.current = 0;
+    setDisplayedText("");
+    setShowCursor(false);
+
+    let currentLineIndex = -1;
+    let lastCharWasNewline = false;
+
+    const startTyping = () => {
+      if (!isTypingActiveRef.current) return;
+      if (currentIndexRef.current >= fullTextRef.current.length) {
+        isTypingActiveRef.current = false;
+        setShowCursor(true);
+        if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null; }
+        if (currentLineIndex >= 0) onLineTypingEndRef.current();
+        return;
+      }
+      const char = fullTextRef.current[currentIndexRef.current];
+      const isNewline = char === "\n";
+      if (lastCharWasNewline || currentIndexRef.current === 0) {
+        if (currentLineIndex >= 0) onLineTypingEndRef.current();
+        currentLineIndex++;
+        onLineTypingStartRef.current();
+      }
+      if (isNewline && currentLineIndex >= 0) onLineTypingEndRef.current();
+      lastCharWasNewline = isNewline;
+      const delay = 7 + Math.random() * 6;
+      timeoutRef.current = setTimeout(() => {
+        if (!isTypingActiveRef.current) return;
+        currentIndexRef.current += 1;
+        setDisplayedText(fullTextRef.current.substring(0, currentIndexRef.current));
+        startTyping();
+      }, delay);
+    };
+
+    isTypingActiveRef.current = true;
+    startTyping();
+
+    return () => {
+      isTypingActiveRef.current = false;
+      if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null; }
+    };
+  }, [lastAnimatedKey]);
+
+  useEffect(() => {
+    if (!showCursor) return;
+    const interval = setInterval(() => setShowCursor((p) => !p), 530);
+    return () => clearInterval(interval);
+  }, [showCursor]);
+
+  const renderText = () => {
+    return displayedText.split("\n").map((line, i) => {
+      if (line === "") return <div key={i} className="h-4" />;
+      if (line === "The Quiet Room") return <div key={i} className="text-white/90 mb-1">{line}</div>;
+      if (line.startsWith("  ")) return <div key={i} className="text-green-400/80 ml-4">{line.trim()}</div>;
+      if (line.startsWith("Entries:")) return <div key={i} className="text-white/50">{line}</div>;
+      return <div key={i} className="text-white/60">{line}</div>;
+    });
+  };
+
+  return (
+    <div
+      className="fixed left-6 top-[140px] z-10 pointer-events-auto"
+      style={{
+        fontFamily: "var(--font-jetbrains-mono), ui-monospace, monospace",
+        fontSize: "13px",
+        lineHeight: "1.7",
+        textShadow: "0 0 8px rgba(255, 255, 255, 0.15)",
+        maxWidth: "700px",
+        letterSpacing: "0.01em",
+      }}
+    >
+      <div className="space-y-0.5">
+        {renderText()}
+        {showCursor && <span className="inline-block w-2 h-4 bg-white/80 ml-1 animate-pulse" />}
       </div>
     </div>
   );
