@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { requirePrisma } from '@/lib/prisma'
 import { withAdmin } from '@/lib/adminGuard'
 
 export async function GET() {
+  const prisma = requirePrisma()
   return withAdmin(async () => {
     const albums = await prisma.album.findMany({
       orderBy: { sortOrder: 'asc' },
@@ -15,6 +16,7 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const prisma = requirePrisma()
   return withAdmin(async () => {
     const body = await request.json()
     const {

@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { requirePrisma } from '@/lib/prisma'
 import { withAdmin } from '@/lib/adminGuard'
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const prisma = requirePrisma()
   return withAdmin(async () => {
     const { id: albumId } = await params
 

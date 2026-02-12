@@ -51,3 +51,4 @@ public/uploads/
 
 # keep .env.example tracked
 !.env.example
+prisma/prisma/

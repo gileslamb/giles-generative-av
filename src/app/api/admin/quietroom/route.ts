@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { requirePrisma } from '@/lib/prisma'
 import { withAdmin } from '@/lib/adminGuard'
 
 function generateSlug(title: string): string {
@@ -14,6 +14,7 @@ function generateSlug(title: string): string {
 }
 
 export async function GET() {
+  const prisma = requirePrisma()
   return withAdmin(async () => {
     const entries = await prisma.quietRoomEntry.findMany({
       orderBy: { createdAt: 'desc' },
@@ -29,6 +30,7 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const prisma = requirePrisma()
   return withAdmin(async () => {
     const data = await request.json()
     const {

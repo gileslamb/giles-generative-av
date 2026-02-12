@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { requirePrisma } from '@/lib/prisma'
 import { withAdmin } from '@/lib/adminGuard'
 
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const prisma = requirePrisma()
   return withAdmin(async () => {
     const { id } = await params
 
@@ -25,6 +26,7 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const prisma = requirePrisma()
   return withAdmin(async () => {
     const { id } = await params
 
@@ -78,6 +80,7 @@ export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const prisma = requirePrisma()
   return withAdmin(async () => {
     const { id } = await params
 
