@@ -1,12 +1,20 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import RichEditor from '@/app/admin/components/RichEditor'
 import FileUpload from '@/app/admin/components/FileUpload'
 
 type PageProps = {
   params: Promise<{ id: string }>
+}
+
+type TrackItem = {
+  id?: string
+  name: string
+  url: string
+  order: number
+  isNew?: boolean
 }
 
 export default function AdminWorkEditPage({ params }: PageProps) {
@@ -16,6 +24,9 @@ export default function AdminWorkEditPage({ params }: PageProps) {
 
   const [loading, setLoading] = useState(!isNew)
   const [saving, setSaving] = useState(false)
+  const [tracks, setTracks] = useState<TrackItem[]>([])
+  const [uploadingTrack, setUploadingTrack] = useState(false)
+  const trackInputRef = useRef<HTMLInputElement>(null)
   const [form, setForm] = useState({
     title: '',
     slug: '',
@@ -60,10 +71,124 @@ export default function AdminWorkEditPage({ params }: PageProps) {
           videoEmbed: work.videoEmbed ?? '',
           images: work.images ?? '',
         })
+        if (work.tracks && Array.isArray(work.tracks)) {
+          setTracks(work.tracks.map((t: TrackItem) => ({
+            id: t.id,
+            name: t.name,
+            url: t.url,
+            order: t.order,
+          })))
+        }
       })
       .catch(() => { alert('Failed to load'); router.push('/admin/works') })
       .finally(() => setLoading(false))
   }, [id, isNew, router])
+
+  // Upload audio file and add as track
+  const handleTrackUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploadingTrack(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('type', 'audio')
+      const res = await fetch('/api/admin/upload', { method: 'POST', body: formData })
+      if (!res.ok) { alert('Upload failed'); return }
+      const { url } = await res.json()
+
+      // Derive a nice name from filename (strip extension and timestamp prefix)
+      const rawName = file.name.replace(/\.[^.]+$/, '').replace(/^\d+-/, '')
+      const trackName = rawName.replace(/_/g, ' ')
+
+      const newTrack: TrackItem = {
+        name: trackName,
+        url,
+        order: tracks.length,
+        isNew: true,
+      }
+
+      if (!isNew) {
+        // Save to DB immediately
+        const saveRes = await fetch(`/api/admin/works/${id}/tracks`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: trackName, url, order: tracks.length }),
+        })
+        if (saveRes.ok) {
+          const saved = await saveRes.json()
+          newTrack.id = saved.id
+          newTrack.isNew = false
+        } else {
+          alert('Track uploaded but failed to save to work')
+        }
+      }
+
+      setTracks((prev) => [...prev, newTrack])
+    } catch {
+      alert('Upload error')
+    } finally {
+      setUploadingTrack(false)
+      if (trackInputRef.current) trackInputRef.current.value = ''
+    }
+  }
+
+  // Remove a track
+  const handleRemoveTrack = async (index: number) => {
+    const track = tracks[index]
+    if (track.id && !isNew) {
+      if (!confirm(`Remove "${track.name}"?`)) return
+      try {
+        await fetch(`/api/admin/works/${id}/tracks/${track.id}`, { method: 'DELETE' })
+      } catch { /* proceed anyway */ }
+    }
+    setTracks((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  // Rename a track
+  const handleRenameTrack = (index: number, newName: string) => {
+    setTracks((prev) => prev.map((t, i) => i === index ? { ...t, name: newName } : t))
+  }
+
+  // Save track name on blur
+  const handleTrackNameBlur = async (index: number) => {
+    const track = tracks[index]
+    if (track.id && !isNew) {
+      try {
+        await fetch(`/api/admin/works/${id}/tracks/${track.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: track.name }),
+        })
+      } catch { /* silent */ }
+    }
+  }
+
+  // Move track up/down
+  const handleMoveTrack = async (index: number, direction: 'up' | 'down') => {
+    const newIndex = direction === 'up' ? index - 1 : index + 1
+    if (newIndex < 0 || newIndex >= tracks.length) return
+    const updated = [...tracks]
+    const temp = updated[index]
+    updated[index] = updated[newIndex]
+    updated[newIndex] = temp
+    // Update order values
+    updated.forEach((t, i) => { t.order = i })
+    setTracks(updated)
+
+    // Persist order to DB
+    if (!isNew) {
+      for (const t of updated) {
+        if (t.id) {
+          fetch(`/api/admin/works/${id}/tracks/${t.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ order: t.order }),
+          }).catch(() => {})
+        }
+      }
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -90,8 +215,23 @@ export default function AdminWorkEditPage({ params }: PageProps) {
         images: form.images.trim() || undefined,
       }
       const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-      if (res.ok) router.push('/admin/works')
-      else { const data = await res.json().catch(() => ({})); alert(data.error ?? 'Failed to save') }
+      if (res.ok) {
+        const savedWork = await res.json()
+        // If this was a new work, save any pending tracks
+        if (isNew && tracks.length > 0) {
+          for (const track of tracks) {
+            await fetch(`/api/admin/works/${savedWork.id}/tracks`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ name: track.name, url: track.url, order: track.order }),
+            })
+          }
+        }
+        router.push('/admin/works')
+      } else {
+        const data = await res.json().catch(() => ({}))
+        alert(data.error ?? 'Failed to save')
+      }
     } catch { alert('Failed to save') }
     finally { setSaving(false) }
   }
@@ -137,6 +277,90 @@ export default function AdminWorkEditPage({ params }: PageProps) {
 
         <div>
           <FileUpload type="images" value={form.coverImage} onChange={(url) => setForm((f) => ({ ...f, coverImage: url }))} label="Cover Image" />
+        </div>
+
+        {/* ── Track Manager ── */}
+        <div className="border-t border-white/10 pt-6">
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-xs font-mono text-white/40">Tracks ({tracks.length})</p>
+            <div>
+              <input
+                ref={trackInputRef}
+                type="file"
+                accept="audio/mpeg,audio/mp3,audio/wav,audio/wave,audio/x-wav,audio/ogg,audio/m4a,audio/mp4,audio/x-m4a"
+                onChange={handleTrackUpload}
+                className="hidden"
+              />
+              <button
+                type="button"
+                onClick={() => trackInputRef.current?.click()}
+                disabled={uploadingTrack}
+                className="px-3 py-1.5 text-xs font-mono bg-white/10 border border-white/10 rounded hover:bg-white/15 transition-colors disabled:opacity-30"
+              >
+                {uploadingTrack ? 'Uploading...' : '+ Upload Track'}
+              </button>
+            </div>
+          </div>
+
+          {tracks.length === 0 ? (
+            <div className="text-xs text-white/30 font-mono py-4 text-center border border-dashed border-white/10 rounded">
+              No tracks yet. Upload audio files to add them to this work.
+            </div>
+          ) : (
+            <div className="space-y-1">
+              {tracks.map((track, index) => (
+                <div
+                  key={track.id ?? `new-${index}`}
+                  className="flex items-center gap-2 bg-white/5 border border-white/10 rounded px-3 py-2 group"
+                >
+                  <span className="text-xs font-mono text-white/30 w-5 text-right flex-shrink-0">
+                    {index + 1}.
+                  </span>
+                  <input
+                    type="text"
+                    value={track.name}
+                    onChange={(e) => handleRenameTrack(index, e.target.value)}
+                    onBlur={() => handleTrackNameBlur(index)}
+                    className="flex-1 bg-transparent text-sm text-white/80 font-mono outline-none border-b border-transparent focus:border-white/20 px-1"
+                  />
+                  <span className="text-[10px] text-white/20 font-mono truncate max-w-[120px] flex-shrink-0">
+                    {track.url.split('/').pop()}
+                  </span>
+                  <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => handleMoveTrack(index, 'up')}
+                      disabled={index === 0}
+                      className="px-1 py-0.5 text-[10px] text-white/40 hover:text-white/80 disabled:opacity-20"
+                      title="Move up"
+                    >
+                      ▲
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleMoveTrack(index, 'down')}
+                      disabled={index === tracks.length - 1}
+                      className="px-1 py-0.5 text-[10px] text-white/40 hover:text-white/80 disabled:opacity-20"
+                      title="Move down"
+                    >
+                      ▼
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveTrack(index)}
+                      className="px-1 py-0.5 text-[10px] text-white/40 hover:text-red-400"
+                      title="Remove track"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          <p className="text-[10px] text-white/20 font-mono mt-2">
+            Tracks are playable on the work page and feed into the site player.
+          </p>
         </div>
 
         <div>
