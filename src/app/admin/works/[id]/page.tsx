@@ -262,6 +262,7 @@ export default function AdminWorkEditPage({ params }: PageProps) {
             <label className="block text-xs font-mono text-white/50 mb-1.5">Type</label>
             <select value={form.type} onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))} className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded text-white focus:outline-none focus:border-white/20 font-mono">
               <option value="album">Album</option>
+              <option value="single">Single</option>
               <option value="visual">Visual</option>
               <option value="film">Film</option>
               <option value="installation">Installation</option>
@@ -384,6 +385,19 @@ export default function AdminWorkEditPage({ params }: PageProps) {
               <input type="text" value={form.bandcampUrl} onChange={(e) => setForm((f) => ({ ...f, bandcampUrl: e.target.value }))} className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded text-white placeholder:text-white/30 focus:outline-none focus:border-white/20 font-mono" placeholder="https://bandcamp.com/..." />
             </div>
           </div>
+        </div>
+
+        {/* External Links JSON editor */}
+        <div>
+          <label className="block text-xs font-mono text-white/50 mb-1.5">Additional Links (JSON)</label>
+          <textarea
+            value={form.externalLinks}
+            onChange={(e) => setForm((f) => ({ ...f, externalLinks: e.target.value }))}
+            className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded text-white placeholder:text-white/30 focus:outline-none focus:border-white/20 font-mono text-xs"
+            placeholder='[{"label":"Website","url":"https://..."}]'
+            rows={3}
+          />
+          <p className="text-[10px] text-white/20 font-mono mt-1">Format: {`[{"label":"Name","url":"https://..."}]`}</p>
         </div>
 
         <div className="flex items-center gap-4">

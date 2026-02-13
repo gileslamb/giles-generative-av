@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useEffect, useState, useMemo, useRef } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import PointCloud from "../../PointCloud";
+import { useAudio } from "../../providers/AudioProvider";
 import type { ApiWork } from "@/lib/useContent";
-import { stripHtml } from "@/lib/useContent";
 
 type ShapeMode = "circular" | "angular";
 type ColorPalette = "charcoal" | "blue" | "green" | "umber";
@@ -13,20 +13,27 @@ function pickRandom<T>(arr: readonly T[]) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
+/** Convert a regular YouTube/Vimeo URL to an embeddable one */
+function toEmbedUrl(url: string): string {
+  // YouTube: watch?v=ID or youtu.be/ID
+  let m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/);
+  if (m) return `https://www.youtube.com/embed/${m[1]}`;
+  // Vimeo: vimeo.com/ID
+  m = url.match(/vimeo\.com\/(\d+)/);
+  if (m) return `https://player.vimeo.com/video/${m[1]}`;
+  return url; // already embed or other format
+}
+
 export default function WorkPage() {
   const params = useParams();
   const router = useRouter();
   const slug = params.slug as string;
+  const { playTracks, isPlaying, trackUrl } = useAudio();
 
   const [work, setWork] = useState<ApiWork | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Audio state for this work's tracks
-  const [trackIndex, setTrackIndex] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-
-  // Visuals — randomized on mount
+  // Visuals
   const [flockStyle] = useState<"single" | "streams">(() => pickRandom(["single", "streams"] as const));
   const [shapeMode] = useState<ShapeMode>(() => pickRandom(["circular", "angular"] as const));
   const [colorPalette] = useState<ColorPalette>(() => pickRandom(["charcoal", "blue", "green", "umber"] as const));
@@ -42,37 +49,36 @@ export default function WorkPage() {
     fetchWork();
   }, [slug]);
 
-  const currentTrack = useMemo(() => {
-    if (!work?.tracks?.length) return null;
-    return work.tracks[trackIndex];
-  }, [work, trackIndex]);
-
   const externalLinks = useMemo(() => {
     if (!work?.externalLinks) return [];
-    try { return JSON.parse(work.externalLinks) as { label: string; url: string }[]; }
-    catch { return []; }
+    try {
+      return JSON.parse(work.externalLinks) as { label: string; url: string }[];
+    } catch {
+      return [];
+    }
   }, [work]);
 
   const images = useMemo(() => {
     if (!work?.images) return [];
-    try { return JSON.parse(work.images) as string[]; }
-    catch { return []; }
+    try {
+      return JSON.parse(work.images) as string[];
+    } catch {
+      return [];
+    }
   }, [work]);
 
-  // Playback control
-  useEffect(() => {
-    const a = audioRef.current;
-    if (!a || !currentTrack) return;
-    a.src = currentTrack.url;
-    if (isPlaying) {
-      a.play().catch(() => setIsPlaying(false));
-    }
-  }, [currentTrack, isPlaying]);
-
-  const playTrack = (index: number) => {
-    setTrackIndex(index);
-    setIsPlaying(true);
+  // Play a track from this work using the global audio provider
+  const handlePlayTrack = (index: number) => {
+    if (!work?.tracks?.length) return;
+    const items = work.tracks.map((t) => ({
+      name: `${t.name} — ${work.title}`,
+      url: t.url,
+    }));
+    playTracks(items, index);
   };
+
+  // Check if a track from this work is currently playing
+  const isTrackActive = (url: string) => isPlaying && trackUrl === url;
 
   const COLOR_PALETTES: Record<ColorPalette, { bg: string }> = {
     charcoal: { bg: "rgb(20, 20, 22)" },
@@ -100,12 +106,14 @@ export default function WorkPage() {
     );
   }
 
+  const embedUrl = work.videoEmbed ? toEmbedUrl(work.videoEmbed) : null;
+
   return (
     <main
       className="relative h-dvh w-dvw overflow-hidden text-white"
       style={{ backgroundColor: COLOR_PALETTES[colorPalette].bg }}
     >
-      {/* PointCloud continues on work pages */}
+      {/* PointCloud continues */}
       <div className="fixed inset-0 z-0 pointer-events-none">
         <PointCloud
           mode="Works"
@@ -117,8 +125,6 @@ export default function WorkPage() {
           colorPalette={colorPalette}
         />
       </div>
-
-      <audio ref={audioRef} preload="auto" />
 
       {/* Content */}
       <div
@@ -161,43 +167,37 @@ export default function WorkPage() {
         {/* Tracks / playlist */}
         {work.tracks && work.tracks.length > 0 && (
           <div className="mb-6 max-w-lg">
-            <div className="text-white/50 text-xs mb-2">Tracks</div>
+            <div className="text-white/50 text-xs mb-2">
+              {work.tracks.length === 1 ? "Track" : "Tracks"}
+            </div>
             <div className="space-y-1">
               {work.tracks.map((track, i) => (
                 <button
                   key={track.id}
-                  onClick={() => playTrack(i)}
+                  onClick={() => handlePlayTrack(i)}
                   className={[
                     "block w-full text-left px-3 py-1.5 rounded text-xs transition-colors",
-                    trackIndex === i && isPlaying
+                    isTrackActive(track.url)
                       ? "bg-white/10 text-white/90"
                       : "text-white/50 hover:text-white/80 hover:bg-white/5",
                   ].join(" ")}
                 >
-                  {trackIndex === i && isPlaying && <span className="mr-2">▶</span>}
+                  {isTrackActive(track.url) && <span className="mr-2">▶</span>}
                   {track.name}
                 </button>
               ))}
             </div>
-            {isPlaying && (
-              <button
-                onClick={() => setIsPlaying(false)}
-                className="mt-2 text-xs text-white/30 hover:text-white/60 transition-colors"
-              >
-                Pause
-              </button>
-            )}
           </div>
         )}
 
         {/* Video embed */}
-        {work.videoEmbed && (
+        {embedUrl && (
           <div className="mb-6 max-w-lg">
             <div className="aspect-video rounded border border-white/10 overflow-hidden">
               <iframe
-                src={work.videoEmbed}
+                src={embedUrl}
                 className="w-full h-full"
-                allow="autoplay; fullscreen"
+                allow="autoplay; fullscreen; encrypted-media"
                 allowFullScreen
               />
             </div>
@@ -220,22 +220,30 @@ export default function WorkPage() {
           </div>
         )}
 
-        {/* External links (streaming, etc.) */}
+        {/* External links */}
         {(work.spotifyUrl || work.appleMusicUrl || work.bandcampUrl || externalLinks.length > 0) && (
           <div className="mb-6 max-w-lg">
             <div className="text-white/50 text-xs mb-2">Links</div>
             <div className="flex flex-wrap gap-2">
               {work.spotifyUrl && (
-                <a href={work.spotifyUrl} target="_blank" rel="noopener noreferrer" className="rounded-full border border-white/15 px-3 py-1 text-xs text-white/50 hover:text-white/80 hover:border-white/30 transition-colors">Spotify</a>
+                <a href={work.spotifyUrl} target="_blank" rel="noopener noreferrer" className="rounded-full border border-white/15 px-3 py-1 text-xs text-white/50 hover:text-white/80 hover:border-white/30 transition-colors">
+                  Spotify
+                </a>
               )}
               {work.appleMusicUrl && (
-                <a href={work.appleMusicUrl} target="_blank" rel="noopener noreferrer" className="rounded-full border border-white/15 px-3 py-1 text-xs text-white/50 hover:text-white/80 hover:border-white/30 transition-colors">Apple Music</a>
+                <a href={work.appleMusicUrl} target="_blank" rel="noopener noreferrer" className="rounded-full border border-white/15 px-3 py-1 text-xs text-white/50 hover:text-white/80 hover:border-white/30 transition-colors">
+                  Apple Music
+                </a>
               )}
               {work.bandcampUrl && (
-                <a href={work.bandcampUrl} target="_blank" rel="noopener noreferrer" className="rounded-full border border-white/15 px-3 py-1 text-xs text-white/50 hover:text-white/80 hover:border-white/30 transition-colors">Bandcamp</a>
+                <a href={work.bandcampUrl} target="_blank" rel="noopener noreferrer" className="rounded-full border border-white/15 px-3 py-1 text-xs text-white/50 hover:text-white/80 hover:border-white/30 transition-colors">
+                  Bandcamp
+                </a>
               )}
               {externalLinks.map((link, i) => (
-                <a key={i} href={link.url} target="_blank" rel="noopener noreferrer" className="rounded-full border border-white/15 px-3 py-1 text-xs text-white/50 hover:text-white/80 hover:border-white/30 transition-colors">{link.label}</a>
+                <a key={i} href={link.url} target="_blank" rel="noopener noreferrer" className="rounded-full border border-white/15 px-3 py-1 text-xs text-white/50 hover:text-white/80 hover:border-white/30 transition-colors">
+                  {link.label}
+                </a>
               ))}
             </div>
           </div>

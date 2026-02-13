@@ -19,6 +19,12 @@ const ALLOWED_AUDIO_TYPES = [
   'audio/x-wav',
   'audio/ogg',
   'audio/m4a',
+  'audio/mp4',
+  'audio/x-m4a',
+  'audio/aac',
+  'audio/flac',
+  'audio/x-flac',
+  'audio/webm',
 ]
 
 export async function POST(request: NextRequest) {
@@ -59,15 +65,12 @@ export async function POST(request: NextRequest) {
     const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_')
     const filename = `${timestamp}-${sanitizedName}`
 
-    const publicDir = path.join(
-      process.cwd(),
-      'public',
-      'uploads',
-      type
-    )
-    await mkdir(publicDir, { recursive: true })
+    // Use /var/data/uploads on server if available, else public/uploads locally
+    const dataDir = process.env.UPLOAD_DIR || path.join(process.cwd(), 'public', 'uploads')
+    const uploadDir = path.join(dataDir, type)
+    await mkdir(uploadDir, { recursive: true })
 
-    const filePath = path.join(publicDir, filename)
+    const filePath = path.join(uploadDir, filename)
     const buffer = Buffer.from(await file.arrayBuffer())
     await writeFile(filePath, buffer)
 

@@ -5,8 +5,10 @@ import { stripHtml, type ApiCurrentEntry } from "@/lib/useContent";
 
 export default function CurrentFeed({
   entries,
+  onEntryClick,
 }: {
   entries: ApiCurrentEntry[];
+  onEntryClick: (id: string) => void;
 }) {
   return (
     <div
@@ -18,7 +20,7 @@ export default function CurrentFeed({
         textShadow: "0 0 8px rgba(255, 255, 255, 0.15)",
         maxWidth: "700px",
         letterSpacing: "0.01em",
-        maxHeight: "calc(100vh - 180px)",
+        maxHeight: "calc(100vh - 220px)",
         overflowY: "auto",
       }}
     >
@@ -29,38 +31,39 @@ export default function CurrentFeed({
       </div>
 
       {entries.length > 0 ? (
-        <div className="space-y-6">
-          {entries.map((entry) => (
-            <div key={entry.id} className="border-l border-white/10 pl-4">
-              {entry.title && (
-                <div className="text-white/80 mb-1">{entry.title}</div>
-              )}
-              {entry.publishedAt && (
-                <div className="text-white/20 text-xs mb-2">
-                  {new Date(entry.publishedAt).toLocaleDateString("en-GB", {
-                    day: "numeric",
-                    month: "short",
-                    year: "numeric",
-                  })}
+        <div className="space-y-4">
+          {entries.map((entry) => {
+            const plainText = stripHtml(entry.body);
+            const preview = plainText.length > 120
+              ? plainText.substring(0, 120) + "..."
+              : plainText;
+
+            return (
+              <button
+                key={entry.id}
+                onClick={() => onEntryClick(entry.id)}
+                className="block w-full text-left group transition-all duration-200 border-l border-white/10 pl-4 hover:border-white/30"
+              >
+                {entry.title && (
+                  <div className="text-white/80 group-hover:text-white/95 transition-colors mb-0.5">
+                    {entry.title}
+                  </div>
+                )}
+                {entry.publishedAt && (
+                  <div className="text-white/20 text-xs mb-1">
+                    {new Date(entry.publishedAt).toLocaleDateString("en-GB", {
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                    })}
+                  </div>
+                )}
+                <div className="text-white/40 text-xs leading-relaxed group-hover:text-white/55 transition-colors">
+                  {preview}
                 </div>
-              )}
-              <div className="text-white/60 text-xs leading-relaxed">
-                {stripHtml(entry.body)}
-              </div>
-              {entry.images && (() => {
-                try {
-                  const imgs: string[] = JSON.parse(entry.images);
-                  return imgs.length > 0 ? (
-                    <div className="flex gap-2 mt-2">
-                      {imgs.slice(0, 3).map((src, i) => (
-                        <img key={i} src={src} alt="" className="w-20 h-20 rounded border border-white/10 object-cover" />
-                      ))}
-                    </div>
-                  ) : null;
-                } catch { return null; }
-              })()}
-            </div>
-          ))}
+              </button>
+            );
+          })}
         </div>
       ) : (
         <div className="text-white/40">Nothing here yet. Something will appear when it&apos;s ready.</div>
