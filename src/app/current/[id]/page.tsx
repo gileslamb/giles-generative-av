@@ -8,6 +8,8 @@ import type { ApiCurrentEntry } from "@/lib/useContent";
 type ShapeMode = "circular" | "angular";
 type ColorPalette = "charcoal" | "blue" | "green" | "umber";
 
+const MONO = "var(--font-jetbrains-mono), ui-monospace, monospace";
+
 function pickRandom<T>(arr: readonly T[]) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
@@ -20,6 +22,7 @@ export default function CurrentEntryPage() {
   const [entry, setEntry] = useState<ApiCurrentEntry | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
 
   const [flockStyle] = useState<"single" | "streams">(() => pickRandom(["single", "streams"] as const));
   const [shapeMode] = useState<ShapeMode>(() => pickRandom(["circular", "angular"] as const));
@@ -79,7 +82,7 @@ export default function CurrentEntryPage() {
   if (loading) {
     return (
       <main className="relative h-dvh w-dvw overflow-hidden text-white flex items-center justify-center" style={{ backgroundColor: "rgb(20,20,22)" }}>
-        <div className="text-white/40 text-sm" style={{ fontFamily: "var(--font-jetbrains-mono), monospace" }}>Loading...</div>
+        <div className="text-white/40 text-sm" style={{ fontFamily: MONO }}>Loading...</div>
       </main>
     );
   }
@@ -88,8 +91,8 @@ export default function CurrentEntryPage() {
     return (
       <main className="relative h-dvh w-dvw overflow-hidden text-white flex items-center justify-center" style={{ backgroundColor: "rgb(20,20,22)" }}>
         <div className="text-center">
-          <div className="text-white/40 text-sm mb-4" style={{ fontFamily: "var(--font-jetbrains-mono), monospace" }}>Not found</div>
-          <button onClick={() => router.push("/")} className="text-white/30 text-xs hover:text-white/60 transition-colors">← Back</button>
+          <div className="text-white/40 text-sm mb-4" style={{ fontFamily: MONO }}>Not found</div>
+          <button onClick={() => router.push("/")} className="text-white/30 text-xs hover:text-white/60 transition-colors" style={{ fontFamily: MONO }}>← Back</button>
         </div>
       </main>
     );
@@ -112,80 +115,120 @@ export default function CurrentEntryPage() {
         />
       </div>
 
-      <div
-        className="fixed left-6 top-6 right-6 bottom-6 z-10 pointer-events-auto overflow-y-auto"
-        style={{
-          fontFamily: "var(--font-jetbrains-mono), ui-monospace, monospace",
-          fontSize: "13px",
-          lineHeight: "1.7",
-          textShadow: "0 0 8px rgba(255, 255, 255, 0.15)",
-        }}
-      >
-        <button
-          onClick={() => router.push("/")}
-          className="text-white/40 hover:text-white/70 transition-colors mb-6 block text-sm"
-        >
-          ← Back
-        </button>
-
-        {entry.title && <h1 className="text-white/90 text-lg mb-1">{entry.title}</h1>}
-
-        {entry.publishedAt && (
-          <div className="text-white/30 text-xs mb-6">
-            {new Date(entry.publishedAt).toLocaleDateString("en-GB", {
-              day: "numeric",
-              month: "long",
-              year: "numeric",
-            })}
-          </div>
-        )}
-
-        {/* Full body content */}
+      {/* Scrollable content — narrow centred column */}
+      <div className="fixed inset-0 z-10 overflow-y-auto pointer-events-auto">
         <div
-          className="prose prose-invert prose-sm max-w-lg text-white/70 mb-6"
-          style={{ fontFamily: "var(--font-geist-sans), sans-serif", fontSize: "14px", lineHeight: "1.8" }}
-          dangerouslySetInnerHTML={{ __html: entry.body }}
-        />
+          className="mx-auto max-w-[640px] px-6 sm:px-10 pt-[110px] sm:pt-[120px] pb-32"
+          style={{ fontFamily: MONO, fontSize: "13px", lineHeight: "1.8" }}
+        >
+          <button
+            onClick={() => router.push("/")}
+            className="text-white/30 hover:text-white/60 transition-colors mb-10 block text-xs tracking-wider uppercase"
+          >
+            ← Back
+          </button>
 
-        {/* Images */}
-        {images.length > 0 && (
-          <div className="mb-6 max-w-lg">
-            <div className="grid grid-cols-2 gap-2">
+          {entry.title && (
+            <h1
+              className="text-white/90 text-base sm:text-lg tracking-wide mb-1"
+              style={{ textShadow: "0 0 20px rgba(255,255,255,0.08)" }}
+            >
+              {entry.title}
+            </h1>
+          )}
+
+          {entry.publishedAt && (
+            <div className="text-white/25 text-xs tracking-widest mb-10">
+              {new Date(entry.publishedAt).toLocaleDateString("en-GB", {
+                day: "numeric",
+                month: "long",
+                year: "numeric",
+              })}
+            </div>
+          )}
+
+          {/* Body */}
+          <div
+            className="text-white/55 mb-12 max-w-[540px] leading-[1.9]"
+            style={{
+              fontFamily: MONO,
+              fontSize: "12px",
+              letterSpacing: "0.01em",
+              textShadow: "0 0 8px rgba(255,255,255,0.06)",
+            }}
+            dangerouslySetInnerHTML={{ __html: entry.body }}
+          />
+
+          {/* Images */}
+          {images.length > 0 && (
+            <div className="mb-12 space-y-8">
               {images.map((src, i) => (
-                <img key={i} src={src} alt="" className="w-full rounded border border-white/10 object-cover" />
+                <div key={i} className="relative group">
+                  <img
+                    src={src}
+                    alt=""
+                    className="w-full max-w-[540px] rounded-md opacity-85 cursor-pointer transition-opacity duration-500 hover:opacity-100"
+                    onClick={() => setLightboxSrc(src)}
+                  />
+                  <div
+                    className="absolute inset-0 rounded-md pointer-events-none"
+                    style={{ boxShadow: "inset 0 0 50px rgba(0,0,0,0.3)" }}
+                  />
+                </div>
               ))}
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Share buttons */}
-        <div className="mb-6 max-w-lg border-t border-white/10 pt-4">
-          <div className="text-white/30 text-xs mb-3">Share</div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={shareX}
-              className="rounded-full border border-white/15 px-3 py-1.5 text-xs text-white/40 hover:text-white/80 hover:border-white/30 transition-colors"
-            >
-              X / Twitter
-            </button>
-            <button
-              onClick={shareLinkedIn}
-              className="rounded-full border border-white/15 px-3 py-1.5 text-xs text-white/40 hover:text-white/80 hover:border-white/30 transition-colors"
-            >
-              LinkedIn
-            </button>
-            <button
-              onClick={copyLink}
-              className="rounded-full border border-white/15 px-3 py-1.5 text-xs text-white/40 hover:text-white/80 hover:border-white/30 transition-colors"
-            >
-              {copied ? "Copied!" : "Copy link"}
-            </button>
+          {/* Share */}
+          <div className="mb-12 border-t border-white/[0.06] pt-8">
+            <div className="text-white/25 text-[10px] tracking-widest uppercase mb-3">Share</div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={shareX}
+                className="rounded-full border border-white/10 px-4 py-1.5 text-xs text-white/35 hover:text-white/70 hover:border-white/25 transition-all duration-200"
+              >
+                X / Twitter
+              </button>
+              <button
+                onClick={shareLinkedIn}
+                className="rounded-full border border-white/10 px-4 py-1.5 text-xs text-white/35 hover:text-white/70 hover:border-white/25 transition-all duration-200"
+              >
+                LinkedIn
+              </button>
+              <button
+                onClick={copyLink}
+                className="rounded-full border border-white/10 px-4 py-1.5 text-xs text-white/35 hover:text-white/70 hover:border-white/25 transition-all duration-200"
+              >
+                {copied ? "Copied!" : "Copy link"}
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
+      {/* Lightbox */}
+      {lightboxSrc && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm cursor-pointer"
+          onClick={() => setLightboxSrc(null)}
+        >
+          <img
+            src={lightboxSrc}
+            alt=""
+            className="max-w-[90vw] max-h-[85vh] rounded-lg object-contain"
+            style={{ boxShadow: "0 0 80px rgba(0,0,0,0.6)" }}
+          />
+          <button
+            className="absolute top-6 right-6 text-white/40 hover:text-white/80 text-sm transition-colors"
+            style={{ fontFamily: MONO }}
+          >
+            close ✕
+          </button>
+        </div>
+      )}
+
       {/* Vignette */}
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.08),rgba(0,0,0,0.85)_70%)]" />
+      <div className="pointer-events-none fixed inset-0 z-[5] bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.06),rgba(0,0,0,0.8)_75%)]" />
     </main>
   );
 }

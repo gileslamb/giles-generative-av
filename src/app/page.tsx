@@ -315,31 +315,18 @@ export default function HomePage() {
       <audio ref={soundscapeSpaceRef} preload="auto" />
       <audio ref={typingBedRef} src="/audio/soundscapes/type-key-v2.wav" preload="auto" />
 
-      {/* ── Top-left: Logo + identity + breathing text ── */}
-      <div className="pointer-events-none fixed left-5 top-5 z-10 flex flex-col gap-0">
-        <img
-          src="/GL LOGO Cream Trans.png"
-          alt="Giles Lamb"
-          className="w-[60px] sm:w-[80px] h-auto opacity-90"
-        />
-        <div
-          className="mt-1.5 text-[10px] sm:text-[11px] tracking-[0.15em] text-white/35 uppercase"
-          style={{ fontFamily: "var(--font-jetbrains-mono), monospace" }}
-        >
-          Giles Lamb
-        </div>
-        <div
-          className="mt-4 sm:mt-6 max-w-[280px] sm:max-w-[400px] transition-opacity duration-[4000ms]"
-          style={{
-            opacity: breathingTextOpacity,
-            fontFamily: "var(--font-jetbrains-mono), ui-monospace, monospace",
-            fontSize: "11px",
-            letterSpacing: "0.02em",
-            color: "rgba(255,255,255,0.30)",
-          }}
-        >
-          {MODE_TEXTS[mode]}
-        </div>
+      {/* ── Breathing text (below the layout-level logo) ── */}
+      <div
+        className="pointer-events-none fixed left-5 top-[90px] sm:top-[105px] z-10 max-w-[280px] sm:max-w-[400px] transition-opacity duration-[4000ms]"
+        style={{
+          opacity: breathingTextOpacity,
+          fontFamily: "var(--font-jetbrains-mono), ui-monospace, monospace",
+          fontSize: "11px",
+          letterSpacing: "0.02em",
+          color: "rgba(255,255,255,0.30)",
+        }}
+      >
+        {MODE_TEXTS[mode]}
       </div>
 
       {/* ── Content feeds ── */}

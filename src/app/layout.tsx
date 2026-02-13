@@ -3,6 +3,7 @@ import { Geist, Geist_Mono, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import AudioProvider from "./providers/AudioProvider";
 import PlayerControls from "./components/PlayerControls";
+import SiteBrand from "./components/SiteBrand";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -36,6 +37,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} ${jetbrainsMono.variable} antialiased`}
       >
         <AudioProvider>
+          <SiteBrand />
           <PlayerControls />
           {children}
         </AudioProvider>
