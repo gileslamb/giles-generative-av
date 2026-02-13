@@ -10,7 +10,7 @@ export async function PUT(
   return withAdmin(async () => {
     const { id: albumId, trackId } = await params
 
-    const track = await prisma.track.findFirst({
+    const track = await prisma.legacyTrack.findFirst({
       where: { id: trackId, albumId },
     })
 
@@ -21,7 +21,7 @@ export async function PUT(
     const body = await request.json()
     const { name, url, order } = body
 
-    const updated = await prisma.track.update({
+    const updated = await prisma.legacyTrack.update({
       where: { id: trackId },
       data: {
         ...(name !== undefined && { name }),
@@ -44,7 +44,7 @@ export async function DELETE(
   return withAdmin(async () => {
     const { id: albumId, trackId } = await params
 
-    const track = await prisma.track.findFirst({
+    const track = await prisma.legacyTrack.findFirst({
       where: { id: trackId, albumId },
     })
 
@@ -52,7 +52,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Track not found' }, { status: 404 })
     }
 
-    await prisma.track.delete({
+    await prisma.legacyTrack.delete({
       where: { id: trackId },
     })
 

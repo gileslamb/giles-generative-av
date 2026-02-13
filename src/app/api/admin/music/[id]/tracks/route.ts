@@ -22,20 +22,14 @@ export async function POST(
     const { name, url, order } = body
 
     if (!name || typeof name !== 'string') {
-      return NextResponse.json(
-        { error: 'name is required' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'name is required' }, { status: 400 })
     }
 
     if (!url || typeof url !== 'string') {
-      return NextResponse.json(
-        { error: 'url is required' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'url is required' }, { status: 400 })
     }
 
-    const track = await prisma.track.create({
+    const track = await prisma.legacyTrack.create({
       data: {
         name,
         url,

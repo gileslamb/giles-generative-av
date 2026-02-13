@@ -7,36 +7,75 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// Unified creative work — albums, visual experiments, film, installations
 model Work {
   id          String   @id @default(cuid())
   title       String
-  client      String?
-  description String?
+  slug        String   @unique
+  year        Int?
+  type        String   @default("album") // album | visual | film | installation | experiment
+  description String?  // rich text (HTML from Tiptap)
   coverImage  String?
-  mediaUrl    String?
-  link        String?
-  runtime     String?
   featured    Boolean  @default(false)
   sortOrder   Int      @default(0)
-  status      String   @default("draft")
+  status      String   @default("draft") // draft | published
+  // External links (streaming, project pages, etc.)
+  spotifyUrl     String?
+  appleMusicUrl  String?
+  bandcampUrl    String?
+  externalLinks  String? // JSON array: [{ label, url }]
+  // Media
+  videoEmbed  String?  // YouTube/Vimeo embed URL
+  images      String?  // JSON array of image paths
+  // Relations
+  tracks      Track[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
 
-model MakingProject {
-  id          String   @id @default(cuid())
-  title       String
-  description String?
-  coverImage  String?
-  mediaUrl    String?
-  link        String?
-  tags        String?
-  featured    Boolean  @default(false)
-  sortOrder   Int      @default(0)
-  status      String   @default("draft")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+model Track {
+  id      String @id @default(cuid())
+  name    String
+  url     String
+  order   Int    @default(0)
+  workId  String
+  work    Work   @relation(fields: [workId], references: [id], onDelete: Cascade)
 }
+
+// Studio diary — what's happening right now
+model CurrentEntry {
+  id          String    @id @default(cuid())
+  title       String?   // optional — some entries are just moments
+  body        String    // rich text (HTML from Tiptap)
+  images      String?   // JSON array of image paths
+  status      String    @default("draft")
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+// Ideas, reflections, essays
+model ThinkingEntry {
+  id            String    @id @default(cuid())
+  title         String
+  slug          String    @unique
+  body          String    // rich text (HTML from Tiptap)
+  featuredImage String?
+  status        String    @default("draft")
+  publishedAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+// Simple email collection — not a subscription
+model Subscriber {
+  id              String   @id @default(cuid())
+  email           String   @unique
+  dateSubscribed  DateTime @default(now())
+}
+
+// --- Legacy models kept for migration compatibility ---
+// These can be removed after data is migrated to the new Work model
 
 model Album {
   id                String   @id @default(cuid())
@@ -54,18 +93,33 @@ model Album {
   featured          Boolean  @default(false)
   sortOrder         Int      @default(0)
   status            String   @default("draft")
-  tracks            Track[]
+  legacyTracks      LegacyTrack[]
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 }
 
-model Track {
+model LegacyTrack {
   id      String @id @default(cuid())
   name    String
   url     String
   order   Int    @default(0)
   albumId String
   album   Album  @relation(fields: [albumId], references: [id], onDelete: Cascade)
+}
+
+model MakingProject {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  coverImage  String?
+  mediaUrl    String?
+  link        String?
+  tags        String?
+  featured    Boolean  @default(false)
+  sortOrder   Int      @default(0)
+  status      String   @default("draft")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model QuietRoomEntry {

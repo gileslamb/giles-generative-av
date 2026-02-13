@@ -55,10 +55,10 @@ function AdminNav() {
 
   const links = [
     { href: '/admin/dashboard', label: 'Dashboard', icon: '◉' },
-    { href: '/admin/works', label: 'Selected Works', icon: '◈' },
-    { href: '/admin/making', label: 'Making', icon: '◇' },
-    { href: '/admin/music', label: 'Music', icon: '♪' },
-    { href: '/admin/quietroom', label: 'The Quiet Room', icon: '◌' },
+    { href: '/admin/works', label: 'Works', icon: '◈' },
+    { href: '/admin/current', label: 'Current', icon: '◇' },
+    { href: '/admin/thinking', label: 'Thinking', icon: '◌' },
+    { href: '/admin/subscribers', label: 'Subscribers', icon: '✉' },
   ]
 
   const handleLogout = async () => {

@@ -1,8 +1,8 @@
-# Giles Generative AV — Site Outline (for sharing with Claude)
+# Giles Generative AV — Site Outline
 
 ## Overview
 
-Portfolio/artist site for **Giles Lamb** — music and sound design. Single-page app with generative visual background, audio playback, and mode-based content (Listen / Projects / Music / Contact). Built with **Next.js 16**, **React 19**, **Tailwind v3**, **TypeScript**. Production build uses **webpack** (`next build --webpack`); Turbopack is disabled due to Tailwind v4 compatibility.
+Creative portal for **Giles Lamb** — music, sound design, and artistic practice. Single-page app with generative particle visuals, integrated audio playback, typewriter-style text reveals, and mode-based navigation. Content managed via admin panel backed by Prisma + SQLite. Built with **Next.js 16**, **React 19**, **Tailwind v3**, **TypeScript**. Production build uses **webpack** (`next build --webpack`).
 
 ---
 
@@ -14,115 +14,133 @@ Portfolio/artist site for **Giles Lamb** — music and sound design. Single-page
 | React | 19.2.3 |
 | Styling | Tailwind CSS v3, globals.css |
 | Fonts | Geist, Geist Mono, JetBrains Mono (next/font/google) |
+| Database | SQLite via Prisma 6 |
+| ORM | Prisma (typed queries, migrations) |
+| Rich Text | Tiptap (admin editor) |
+| Auth | Password-protected admin (bcrypt + session cookie) |
 | Build | `next build --webpack` (Turbopack off) |
-| Content | Static data in `src/content/` (music, projects, tracks) |
-
----
-
-## App Structure
-
-- **Entry:** `src/app/page.tsx` — single client page (`"use client"`), all main state and logic live here.
-- **Layout:** `src/app/layout.tsx` — root layout, font variables, metadata.
-- **Background:** `src/app/PointCloud.tsx` — canvas-based particle/point-cloud scene (mode-dependent density, drift, jitter; optional rain/forest/space scenes; reacts to audio energy/bloom).
-- **Feeds (typewriter-style text):**
-  - **Projects:** `ProjectsInfoFeed.tsx` — shown in Watch mode; typewriter + cursor.
-  - **Music:** In-page `MusicSubmenu` + `MusicSubcategoryContent` (in `page.tsx`) — subcategories Commercial Albums / Library Music / Un-Released; album list with typewriter driven by `contentKey` and `lastAnimatedKey` state.
-  - **Now Playing:** `NowPlayingReadout.tsx` — track name and album; typewriter keyed by `trackUrl`.
-- **Other:** `MusicInfoFeed.tsx` (standalone feed, may be legacy); `CreditsPanels.tsx`; `NowPlayingReadout 2.tsx` (duplicate/backup).
+| Content | Database (SQLite) via API routes; static fallback in `src/content/` |
+| Hosting | Render (with persistent disk for SQLite) |
 
 ---
 
 ## Modes (Bottom Nav)
 
-| Mode (internal) | Display name | Behaviour |
-|-----------------|--------------|-----------|
-| Listen | Listen | Home; breathing text; audio from site playlist. |
-| Watch | Projects | Shows `ProjectsInfoFeed` (typewriter); project list from `src/content/projects.ts`. |
-| Feel | Music | Shows `MusicSubmenu` → subcategory → `MusicSubcategoryContent` (album list + typewriter). Album names clickable to scope playback; “Stream / Buy / License” opens license panel. |
-| Contact | Contact | Opens contact overlay; can also open from Music as “license” with album context. |
-| Rain | Rain | Optional; PointCloud can show rain/forest/space. |
+| Mode (internal) | Display Name | Position | Behaviour |
+|-----------------|--------------|----------|-----------|
+| Listen | Listen | Center transport | Home; breathing text; generative audio. |
+| Works | Selected Works | Left cluster | Client/commercial work. Database-backed typewriter feed. |
+| Making | Making | Left cluster | Active creative projects (coding, performances, AV). Typewriter feed. |
+| Music | Music | Right cluster | Albums — Commercial, Library, Un-Released. Subcategory menu → album cards. |
+| QuietRoom | The Quiet Room | Right cluster | Writings, reflections, process. List view → article view. Database-backed. |
+| Contact | ✉ (icon) | Right cluster | Contact overlay (general or license-specific). |
+
+### Nav Layout
+
+```
+[Selected Works] [Making]     Play Pause Mute Reseed Listen · Space Rain Forest     [Music] [The Quiet Room] [✉]
+     LEFT cluster                        CENTER transport                              RIGHT cluster (lighter weight)
+```
 
 ---
 
-## Data & Content
+## App Structure
 
-- **`src/content/music.ts`**
-  - `MusicEntry`: id, category (Commercial Album / Library Music / Un-Released), album, releaseYear, link, description, featured, albumType, discoUrl, libraryLicenseUrl, spotifyUrl, appleMusicUrl, bandcampUrl.
-  - `musicEntries` array; `getSortedMusic()` for display order (featured, sortOrder, seeded random).
-- **`src/content/tracks.ts`**
-  - `Track`: id, url (explicit path, e.g. `/audio/01Ever.mp3`), name, albumId.
-  - `ALBUM_TRACKS` map albumId → Track[]; `getAlbumTracks(albumId)`; `getSiteTracks()` for main playlist.
-- **`src/content/projects.ts`**
-  - `Project`: id, name, client, runtime, link, description, featured, sortOrder.
-  - `projects` array; `getSortedProjects()`.
+- **Entry:** `src/app/page.tsx` — single client page (`"use client"`), owns all state, orchestrates layout.
+- **Layout:** `src/app/layout.tsx` — root layout, font variables, metadata.
+- **Background:** `src/app/PointCloud.tsx` — canvas-based particle/point-cloud scene (mode-dependent density, drift, jitter; optional rain/forest/space scenes; reacts to audio energy/bloom).
 
-Playback uses **only** explicit `track.url` from these sources (no generated paths).
+### Components
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| WorksContent | `src/app/components/WorksContent.tsx` | Selected Works typewriter feed (database-backed) |
+| ProjectsInfoFeed | `src/app/ProjectsInfoFeed.tsx` | Making section typewriter feed |
+| MusicSubmenu | `src/app/components/MusicSubmenu.tsx` | Music subcategory menu + album cards with typewriter |
+| ContactOverlay | `src/app/components/ContactOverlay.tsx` | Contact form (general) and license panel (album-specific) |
+| QuietRoomContent | `src/app/components/QuietRoomContent.tsx` | Quiet Room list view + article view (database-backed) |
+| NowPlayingReadout | `src/app/NowPlayingReadout.tsx` | Now playing track + next button; typewriter by trackUrl |
+| PointCloud | `src/app/PointCloud.tsx` | Full-screen canvas particle system |
+
+### Data Layer
+
+| File | Purpose |
+|------|---------|
+| `src/lib/useContent.ts` | Custom hook — fetches content from API, transforms for front-end, provides fallback to static data |
+| `src/lib/prisma.ts` | Prisma client singleton (null-safe for environments without DB) |
+| `src/lib/auth.ts` | Admin authentication (password verify, session management) |
+| `src/lib/adminGuard.ts` | Middleware wrapper to protect admin API routes |
+| `src/content/music.ts` | Static music data (fallback / seed source) |
+| `src/content/tracks.ts` | Static track metadata (fallback / seed source) |
+| `src/content/projects.ts` | Static project data (fallback / seed source) |
+
+---
+
+## Database Schema (Prisma)
+
+Models: `Work`, `MakingProject`, `Album`, `Track`, `QuietRoomEntry`
+
+- **Work** — Selected Works entries (title, client, description, coverImage, etc.)
+- **MakingProject** — Making entries (title, description, tags, etc.)
+- **Album** — Music albums with streaming URLs and category
+- **Track** — Audio tracks linked to albums
+- **QuietRoomEntry** — Quiet Room articles (rich text body, excerpt, audio, access tier)
+
+---
+
+## API Routes
+
+### Public (read-only)
+- `GET /api/works` — published works
+- `GET /api/making` — published making projects
+- `GET /api/music` — published albums + tracks
+- `GET /api/quietroom` — published entries
+- `GET /api/quietroom/[slug]` — single entry by slug
+
+### Admin (password-protected)
+- `POST /api/admin/auth/login` — authenticate
+- `POST /api/admin/auth/logout` — clear session
+- `GET /api/admin/auth/check` — verify session
+- Full CRUD for: works, making, music (albums + tracks), quietroom
+- `POST /api/admin/upload` — file upload
+
+---
+
+## Admin Panel (`/admin`)
+
+- `/admin` — Login page
+- `/admin/dashboard` — Overview with counts and quick links
+- `/admin/works` — CRUD for Selected Works
+- `/admin/making` — CRUD for Making projects
+- `/admin/music` — CRUD for Albums + track management
+- `/admin/quietroom` — CRUD for Quiet Room entries (Tiptap rich text editor)
 
 ---
 
 ## Audio
 
-- **Main playback:** Single `<audio>` ref; `trackUrl` from site playlist or album-scoped playlist. Play/pause, next track; muted state; requires user gesture to start.
-- **Web Audio:** Analyser for PointCloud (energy/bloom) when audio enabled and user has interacted; `AudioContext` + `createMediaElementSource` + analyser, created once per session.
-- **Typing sound:** “Typing bed” loop (`/audio/soundscapes/type-key-v2.wav`) started/stopped per line via `onLineTypingStart` / `onLineTypingEnd` passed into Projects and Music feeds.
-- **Soundscapes:** Refs for forest/rain/space; optional background layers.
+- **Main playback:** Single `<audio>` ref; plays from site playlist or album-scoped playlist.
+- **Web Audio:** Analyser for PointCloud (energy/bloom) when audio enabled.
+- **Typing sound:** Loop (`/audio/soundscapes/type-key-v2.wav`) started/stopped per line via callbacks.
+- **Soundscapes:** Forest/rain/space ambient layers with fade in/out.
 
 ---
 
-## Music Section (Feel Mode) — Detail
+## Key Patterns
 
-- **Subcategories:** Commercial Albums, Library Music, Un-Released (buttons; one active at a time).
-- **contentKey:** Stable key for typewriter: `(subcategory ?? "") + "|" + albums.map(a => a.id).join(",")` (from `page.tsx` useMemo). Used so typing runs **once per contentKey change** (section/album set), not on panel open/close or link clicks.
-- **Typewriter:** In `MusicSubcategoryContent`: full text built from albums; one state `lastAnimatedKey` (string | null). If `contentKey === lastAnimatedKey` → set `displayedText = fullText` and show cursor (no animation). If `contentKey !== lastAnimatedKey` → clear text, run typewriter; on completion call `setLastAnimatedKey(contentKey)`. Effect deps: `[contentKey, lastAnimatedKey]`. Typing sound wired via refs to parent’s typing bed.
-- **Album actions:** Click album name → `scopeToAlbum(albumId)` (playback scoped to that album). “Stream / Buy / License” (Commercial/Un-Released) → `handleLicenseClick(albumId)` → opens Contact overlay in license mode with that album. Library albums use `libraryLicenseUrl` link directly.
+### Typewriter Animation
+- **MusicSubcategoryContent** — keyed by `contentKey` + `lastAnimatedKey` state
+- **WorksContent** — keyed by `contentKey` derived from works data
+- **ProjectsInfoFeed** — keyed by project data
+- **NowPlayingReadout** — keyed by `trackUrl`
 
----
+Rule: type once per key. If key already animated, show full text immediately. Never loop.
 
-## Contact Overlay
-
-- **Modes:** `contact` (general) or `license` (album-specific).
-- **License mode:** Shows album title; **Stream / Buy** links: Spotify, Apple Music, Bandcamp, DISCO (each only if corresponding URL exists on album in `music.ts`). Optional license form (name, company, track dropdown, usage, details); submit currently alerts (no email/API). Form behaviour and layout unchanged by recent tasks.
-- **Contact mode:** General “Work with me” form (no backend yet).
-
----
-
-## Key UI / UX Details
-
-- **Breathing text:** Top-left style “breathing” line (mode-specific copy from `MODE_TEXTS`); opacity animation.
-- **PointCloud:** Particle count, drift, jitter vary by mode; shape (circular/angular) and color palette (charcoal/blue/green/umber) randomized on load; can react to audio energy and bloom.
-- **Bottom bar:** Mode buttons; Play/Pause; Mute; Audio on/off; optional soundscape/background toggles.
-- **Logo:** Top-left, `public/GL LOGO Cream Trans.png`.
-
----
-
-## Files Quick Reference
-
-| Path | Purpose |
-|------|--------|
-| `src/app/page.tsx` | Main page, all mode/audio/playback state, MusicSubmenu, MusicSubcategoryContent, ContactOverlay, nav, typing bed wiring. |
-| `src/app/PointCloud.tsx` | Canvas particle scene (mode, energy, bloom, flock style, shape, palette, background scene). |
-| `src/app/NowPlayingReadout.tsx` | Now playing line + next button; typewriter by trackUrl. |
-| `src/app/ProjectsInfoFeed.tsx` | Projects typewriter feed (Watch mode). |
-| `src/app/MusicInfoFeed.tsx` | Standalone music feed (may be unused or legacy). |
-| `src/app/layout.tsx` | Root layout, fonts, metadata. |
-| `src/app/globals.css` | Tailwind directives, CSS variables (e.g. --background, --foreground, .terminal). |
-| `src/content/music.ts` | Music entries and getSortedMusic(). |
-| `src/content/tracks.ts` | Track metadata, getAlbumTracks(), getSiteTracks(). |
-| `src/content/projects.ts` | Projects and getSortedProjects(). |
-| `next.config.ts` | reactCompiler: true; no Turbopack (build uses package.json script). |
-| `package.json` | `build`: `next build --webpack`. |
-| `tailwind.config.js` | content paths, theme extend (fontFamily, colors). |
-| `postcss.config.mjs` | tailwindcss, autoprefixer. |
-
----
-
-## Constraints / Conventions (from recent work)
-
-- **contentKey** calculation is fixed; do not change.
-- **Typewriter:** One guard only (`lastAnimatedKey` state); full text is source of truth; animation is progressive reveal; must not loop or blank; must not retrigger on panel/link/playback.
-- **Playback:** Use only explicit `track.url` from content; no generated paths.
-- **License panel:** Spotify / Apple Music / Bandcamp / DISCO rendered only when URL exists in album metadata; no layout/design change.
-- **No email/API** in contact/license forms in current scope.
+### Content Hook (`useContent`)
+- Fetches from `/api/works`, `/api/making`, `/api/music`, `/api/quietroom` on mount
+- Strips HTML from descriptions for typewriter display
+- Falls back to static `src/content/` data if API unavailable
+- Exports: `works`, `makingProjects`, `sortedMusic`, `quietRoomEntries`, `siteTracks`, `getAlbumTracks`, `fetchQuietRoomEntry`
 
 ---
 
@@ -130,9 +148,29 @@ Playback uses **only** explicit `track.url` from these sources (no generated pat
 
 ```bash
 npm install
-npm run build   # uses webpack
-npm run start   # production server
-npm run dev     # dev server
+npm run build        # production build (webpack)
+npm run build:render # Render deploy (prisma generate + migrate + build)
+npm run start        # production server
+npm run dev          # dev server
+npm run db:migrate   # run Prisma migrations
+npm run db:seed      # seed database from static content
 ```
 
-`.next/BUILD_ID` is created after a successful build.
+## Environment Variables
+
+```
+ADMIN_PASSWORD=your-secure-password
+SESSION_SECRET=random-32-char-string
+DATABASE_URL=file:./prisma/data/giles.db
+```
+
+---
+
+## Constraints / Conventions
+
+- **contentKey** calculation is fixed; do not change.
+- **Typewriter:** One guard per feed; full text is source of truth; must not loop or blank.
+- **Playback:** Use only explicit `track.url` from content; no generated paths.
+- **License panel:** Spotify / Apple Music / Bandcamp / DISCO rendered only when URL exists.
+- **Database:** Prisma client handles missing `DATABASE_URL` gracefully (returns null).
+- **Admin:** Password from `ADMIN_PASSWORD` env var, bcrypt-hashed comparison.

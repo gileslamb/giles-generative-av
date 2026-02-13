@@ -8,7 +8,7 @@ export async function GET() {
     const albums = await prisma.album.findMany({
       orderBy: { sortOrder: 'asc' },
       include: {
-        _count: { select: { tracks: true } },
+        _count: { select: { legacyTracks: true } },
       },
     })
     return NextResponse.json(albums)

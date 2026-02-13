@@ -6,132 +6,79 @@ Transform from a portfolio site into a living creative portal — a place where 
 
 ---
 
-## Phase 1: Navigation Restructure
+## Phase 1: Navigation Restructure ✅ COMPLETE
 
-### New Mode Map
+### Mode Map (Sprint 1 + 1.5)
 
 | Position | Mode (internal) | Display Name | What It Does |
 |----------|----------------|--------------|--------------|
-| Left cluster | commissions | Commissions | Client/commercial work showcase + inquiry form |
-| Left cluster | projects | Projects | Your own artistic exploits — personal/experimental |
-| Center | listen | Listen | Home state — breathing text, generative audio |
-| Right cluster | music | Music | Albums — Commercial, Library, Un-Released |
-| Right cluster | pod | Pod | Blog/journal — writings, WIPs, creative process |
-| Right cluster | contact | Contact | General contact (also reachable from Commissions) |
+| Left cluster | Works | Selected Works | Client/commercial work showcase |
+| Left cluster | Making | Making | Personal/experimental artistic projects |
+| Center | Listen | Listen | Home state — breathing text, generative audio |
+| Right cluster | Music | Music | Albums — Commercial, Library, Un-Released |
+| Right cluster | QuietRoom | The Quiet Room | Writings, reflections, creative process |
+| Right cluster | Contact | ✉ | Contact overlay (general + license mode) |
 
-### Layout concept
-
-```
-[Commissions] [Projects]     > || Mute     [Music] [Pod] [Contact]
-                            (transport)
-```
-
-### What Changes in page.tsx
-
-- New mode type: `'listen' | 'commissions' | 'projects' | 'music' | 'pod' | 'contact'`
-- `MODE_TEXTS` updated with breathing text for each mode
-- PointCloud gets density/drift/jitter config for commissions and pod modes
-- New content components: `CommissionsContent`, `PodContent`
-- Existing Watch mode renamed to projects internally
-
-### What Stays the Same
-
-- contentKey / lastAnimatedKey typewriter system — unchanged
-- Audio/playback pipeline — unchanged
-- PointCloud architecture — just new mode configs
-- Contact overlay — reused for commission inquiries too
+### What Was Done
+- [x] Restructured modes from 5 to 6
+- [x] New nav layout: left cluster / transport / right cluster
+- [x] Left cluster uses `font-medium` (heavier); right uses `font-light` (lighter)
+- [x] Contact renders as ✉ icon
+- [x] Updated MODE_TEXTS breathing copy
+- [x] PointCloud configs for all 6 modes
+- [x] Placeholder components for new modes
 
 ---
 
-## Phase 2: Data Entry Backend (Admin Panel)
+## Phase 2: Data Entry Backend (Admin Panel) ✅ COMPLETE
 
 ### Architecture: Next.js API Routes + SQLite (via Prisma)
 
-Why this approach:
-- No external services — everything lives in your project
-- SQLite file sits alongside your app (easy backup, portable)
-- Prisma gives you typed queries and easy migrations
-- Admin panel is just a protected route in your Next.js app
-- Scales to Postgres later if needed (Prisma makes this a one-line change)
+- Prisma 6 + SQLite — no external services
+- Admin panel at `/admin` — password-protected
+- Tiptap rich text editor for content fields
+- File uploads to `/public/uploads/`
+- Public API routes for front-end consumption
 
-### Database Schema
+### What Was Done
+- [x] Prisma schema: Work, MakingProject, Album, Track, QuietRoomEntry
+- [x] Full CRUD API routes (admin + public)
+- [x] Admin auth (bcrypt password, session cookie)
+- [x] Admin UI: login, dashboard, list/edit pages for all content types
+- [x] Rich text editor (Tiptap) for descriptions and Quiet Room body
+- [x] File upload handling
+- [x] Seed script (`prisma/seed.ts`) to migrate static content
+- [x] Front-end integration via `useContent` hook
+- [x] HTML stripping for typewriter display
+- [x] Quiet Room article view (list → detail with cover image, rich body, audio)
+- [x] Render deployment hardening (null-safe Prisma, resilient API routes)
 
-```
-projects                  music                     pod_entries
-├── id                    ├── id                    ├── id
-├── title                 ├── album                 ├── title
-├── client                ├── category              ├── slug
-├── type (commission      ├── releaseYear           ├── body (markdown)
-│   / personal)           ├── albumType             ├── excerpt
-├── description           ├── description           ├── coverImage
-├── runtime               ├── coverImage            ├── audioUrl
-├── coverImage            ├── spotifyUrl            ├── images[]
-├── mediaUrl              ├── appleMusicUrl         ├── status (draft/
-├── featured              ├── bandcampUrl           │   published/
-├── sortOrder             ├── discoUrl              │   subscriber)
-├── status                ├── libraryLicenseUrl     ├── accessTier
-├── createdAt             ├── featured              │   (free/paid)
-├── updatedAt             ├── sortOrder             ├── tags[]
-                          ├── tracks[]              ├── publishedAt
-                          ├── createdAt             ├── createdAt
-                          ├── updatedAt             ├── updatedAt
-```
-
-### Admin Panel (/admin)
-
-Protected by a simple password or session token (upgradeable to proper auth later).
-
-Features per content type:
-- **List view** — table with status, featured toggle, drag-to-reorder
-- **Create/Edit form** — rich fields per type:
-  - Projects: title, client, description (markdown), media upload, featured toggle
-  - Music: album details, streaming URLs, track list management, cover upload
-  - Pod: title, markdown editor, image/audio upload, access tier selector, tags
-- **Media uploads** — images and audio stored in `/public/uploads/` (or S3 later)
-- **Preview** — see how it looks on the front-end before publishing
-
-### API Routes
-
-```
-/api/admin/projects      GET / POST
-/api/admin/projects/[id] GET / PUT / DELETE
-/api/admin/music         GET / POST
-/api/admin/music/[id]    GET / PUT / DELETE
-/api/admin/pod           GET / POST
-/api/admin/pod/[id]      GET / PUT / DELETE
-/api/admin/upload        POST (file upload)
-/api/admin/auth          POST (login)
-```
-
-### Migration Path from Static Content
-
-Your current `src/content/*.ts` files become seed data for the database. The front-end switches from importing static arrays to fetching from API routes (or using server components with direct Prisma queries).
+### Component Extraction
+- [x] Extracted MusicSubmenu → `src/app/components/MusicSubmenu.tsx`
+- [x] Extracted ContactOverlay → `src/app/components/ContactOverlay.tsx`
+- [x] Extracted WorksContent → `src/app/components/WorksContent.tsx`
+- [x] Extracted QuietRoomContent → `src/app/components/QuietRoomContent.tsx`
+- [x] Removed legacy files: MusicInfoFeed, NowPlayingReadout 2, CreditsPanels
+- [x] page.tsx reduced from ~1960 lines to ~930 lines
 
 ---
 
-## Phase 3: Pod / Blog Section
+## Phase 3: Pod / Blog Section (The Quiet Room)
 
-### The "Pod" Experience
+### Current State
+The Quiet Room has basic infrastructure from Phase 2:
+- Database model and CRUD
+- List view with clickable entries
+- Article view with rich text rendering, cover images, audio
+- Access tier badges (free/subscriber)
 
-This is your creative journal — a window into process. The design should feel intimate and raw, like reading someone's notebook.
-
-Content types within Pod:
-- **Writings** — markdown posts, essays, reflections
-- **WIP Updates** — project progress with images/audio snippets
-- **Audio Journal** — spoken entries with optional transcript
-- **Visual Diary** — image collections with captions
-
-Front-end behavior:
-- Typewriter-style feed (consistent with site aesthetic)
-- Entries appear as scrollable cards or sequential reveals
-- Audio entries have inline playback
-- Images open in a lightbox or expand in-place
-- Access tier badge: unlocked Free / locked Subscribers
-
-Pod in the nav:
-- Click "Pod" -> shows recent entries (typewriter titles)
-- Click entry -> expands content
-- Gated entries show preview + "Subscribe to read" prompt
+### Remaining Work
+- [ ] Typewriter-style feed for entry titles (consistent with site aesthetic)
+- [ ] Enhanced article layout (better typography, image handling)
+- [ ] Audio journal inline playback
+- [ ] "Subscribe to read" prompt for gated content
+- [ ] Substack mirror integration (API or manual cross-post)
+- [ ] RSS feed generation
 
 ---
 
@@ -141,35 +88,22 @@ Pod in the nav:
 
 | Tier | Price | Access |
 |------|-------|--------|
-| Visitor | Free | Public projects, music streaming, free Pod entries |
-| Subscriber | GBP 5-10/mo | All Pod entries, early access, WIPs, audio journal |
+| Visitor | Free | Public projects, music streaming, free Quiet Room entries |
+| Subscriber | GBP 5-10/mo | All Quiet Room entries, early access, WIPs, audio journal |
 | Patron | GBP 20+/mo | Everything + behind-the-scenes, direct messages, credits |
 
 ### One-Off Purchases
-
 - Album purchases — link to Bandcamp/external or sell direct
 - Commission deposits — Stripe Checkout for booking fee
 
 ### Technical Implementation
-
-```
-Stripe Integration
-├── Stripe Checkout (subscriptions + one-off)
-├── Stripe Customer Portal (manage subscription)
-├── Webhook handler (/api/stripe/webhook)
-│   ├── checkout.session.completed -> create/update user
-│   ├── customer.subscription.updated -> update tier
-│   └── customer.subscription.deleted -> downgrade
-├── Auth (NextAuth.js or custom)
-│   ├── Email magic link (no passwords)
-│   └── Session stores tier/access level
-└── Content gating
-    ├── Server-side: check tier before returning Pod content
-    └── Client-side: show/blur based on session
-```
+- Stripe Checkout (subscriptions + one-off)
+- Stripe Customer Portal (manage subscription)
+- Webhook handler (`/api/stripe/webhook`)
+- Auth (magic link email, no passwords for subscribers)
+- Content gating (server-side tier check before returning content)
 
 ### Database Additions
-
 ```
 users                     subscriptions
 ├── id                    ├── id
@@ -183,50 +117,17 @@ users                     subscriptions
 
 ---
 
-## Implementation Order
+## Key Decisions Made
 
-### Sprint 1: Navigation + Skeleton (now)
-- [ ] Restructure modes in page.tsx
-- [ ] New nav layout with all 6 modes
-- [ ] Placeholder content for Commissions and Pod
-- [ ] PointCloud configs for new modes
-- [ ] Update MODE_TEXTS breathing copy
-
-### Sprint 2: Database + Admin Panel
-- [ ] Set up Prisma + SQLite
-- [ ] Define schema (projects, music, pod_entries)
-- [ ] Build admin route with auth
-- [ ] CRUD forms for each content type
-- [ ] File upload handling
-- [ ] Migrate static content to DB
-- [ ] Switch front-end to API/DB queries
-
-### Sprint 3: Pod Section
-- [ ] Pod entry display component (typewriter-consistent)
-- [ ] Markdown rendering
-- [ ] Audio/image inline display
-- [ ] Entry detail view
-- [ ] Access tier indicators
-
-### Sprint 4: Stripe + Membership
-- [ ] Stripe account connection
-- [ ] Subscription products/prices in Stripe Dashboard
-- [ ] Checkout flow
-- [ ] Webhook handler
-- [ ] User auth (magic link)
-- [ ] Content gating logic
-- [ ] Customer portal link
-- [ ] Commission payment flow
-
----
-
-## Key Decisions to Make
-
-- **Database hosting:** SQLite works great for single-server deploys (VPS, Railway). If on Vercel, use Turso (SQLite edge) or Postgres (Neon/Supabase) — Vercel serverless doesn't persist files.
-- **Auth provider:** NextAuth.js with email magic links is simplest. Or Clerk for managed. Or roll your own with sessions + bcrypt.
-- **Media storage:** Local `/public/uploads/` works for self-hosted. For Vercel/cloud, use Cloudflare R2, S3, or Uploadthing.
-- **Stripe mode:** Start in Test mode, build everything, then flip to Live when ready.
-- **Pod content format:** Pure markdown? Or a richer editor (Tiptap, BlockNote)?
+| Decision | Choice | Why |
+|----------|--------|-----|
+| Database | SQLite via Prisma | Simple, no external service, works on Render with persistent disk |
+| Admin auth | Password + bcrypt | Simplest; upgradeable later |
+| Rich text | Tiptap | React-native, extensible, good DX |
+| Content delivery | API routes + useContent hook | Clean separation, static fallback |
+| File storage | Local `/public/uploads/` | Works with Render persistent disk |
+| Deployment | Render | Supports persistent disks for SQLite |
+| Quiet Room | Hybrid (on-site primary, Substack mirror) | Own the experience, leverage Substack distribution |
 
 ---
 
@@ -235,13 +136,13 @@ users                     subscriptions
 ```
 gileslamb.com
 ├── Listen          (generative home — the vibe)
-├── Commissions     (client work + booking)
-├── Projects        (personal art + experiments)
+├── Selected Works  (client work + showcase)
+├── Making          (personal art + experiments)
 ├── Music           (albums + streaming + licensing)
-├── Pod             (creative journal — free + gated)
-└── Contact         (general inquiries)
-     └── /admin     (your control panel)
-     └── /account   (subscriber portal)
+├── The Quiet Room  (creative journal — free + gated)
+└── ✉ Contact       (general inquiries + license forms)
+     └── /admin     (content management panel)
+     └── /account   (subscriber portal — Phase 4)
 ```
 
-A self-contained creative portal: showcase, shop, journal, and community — all running through your generative aesthetic.
+A self-contained creative portal: showcase, music, journal, and community — all running through your generative aesthetic.

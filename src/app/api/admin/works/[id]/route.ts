@@ -9,15 +9,11 @@ export async function GET(
   const prisma = requirePrisma()
   return withAdmin(async () => {
     const { id } = await params
-
     const work = await prisma.work.findUnique({
       where: { id },
+      include: { tracks: { orderBy: { order: 'asc' } } },
     })
-
-    if (!work) {
-      return NextResponse.json({ error: 'Work not found' }, { status: 404 })
-    }
-
+    if (!work) return NextResponse.json({ error: 'Work not found' }, { status: 404 })
     return NextResponse.json(work)
   })
 }
@@ -29,46 +25,35 @@ export async function PUT(
   const prisma = requirePrisma()
   return withAdmin(async () => {
     const { id } = await params
-
-    const work = await prisma.work.findUnique({
-      where: { id },
-    })
-
-    if (!work) {
-      return NextResponse.json({ error: 'Work not found' }, { status: 404 })
-    }
+    const work = await prisma.work.findUnique({ where: { id } })
+    if (!work) return NextResponse.json({ error: 'Work not found' }, { status: 404 })
 
     const body = await request.json()
     const {
-      title,
-      client,
-      description,
-      coverImage,
-      mediaUrl,
-      link,
-      runtime,
-      featured,
-      sortOrder,
-      status,
+      title, slug, year, type, description, coverImage,
+      featured, sortOrder, status,
+      spotifyUrl, appleMusicUrl, bandcampUrl, externalLinks,
+      videoEmbed, images,
     } = body
 
     const updated = await prisma.work.update({
       where: { id },
       data: {
         ...(title !== undefined && { title }),
-        ...(client !== undefined && { client }),
+        ...(slug !== undefined && { slug }),
+        ...(year !== undefined && { year: year ? parseInt(year, 10) : null }),
+        ...(type !== undefined && { type }),
         ...(description !== undefined && { description }),
         ...(coverImage !== undefined && { coverImage }),
-        ...(mediaUrl !== undefined && { mediaUrl }),
-        ...(link !== undefined && { link }),
-        ...(runtime !== undefined && { runtime }),
         ...(featured !== undefined && { featured: Boolean(featured) }),
-        ...(sortOrder !== undefined && {
-          sortOrder: typeof sortOrder === 'number' ? sortOrder : 0,
-        }),
-        ...(status !== undefined && {
-          status: status === 'published' ? 'published' : 'draft',
-        }),
+        ...(sortOrder !== undefined && { sortOrder: typeof sortOrder === 'number' ? sortOrder : 0 }),
+        ...(status !== undefined && { status: status === 'published' ? 'published' : 'draft' }),
+        ...(spotifyUrl !== undefined && { spotifyUrl }),
+        ...(appleMusicUrl !== undefined && { appleMusicUrl }),
+        ...(bandcampUrl !== undefined && { bandcampUrl }),
+        ...(externalLinks !== undefined && { externalLinks }),
+        ...(videoEmbed !== undefined && { videoEmbed }),
+        ...(images !== undefined && { images }),
       },
     })
 
@@ -83,19 +68,9 @@ export async function DELETE(
   const prisma = requirePrisma()
   return withAdmin(async () => {
     const { id } = await params
-
-    const work = await prisma.work.findUnique({
-      where: { id },
-    })
-
-    if (!work) {
-      return NextResponse.json({ error: 'Work not found' }, { status: 404 })
-    }
-
-    await prisma.work.delete({
-      where: { id },
-    })
-
+    const work = await prisma.work.findUnique({ where: { id } })
+    if (!work) return NextResponse.json({ error: 'Work not found' }, { status: 404 })
+    await prisma.work.delete({ where: { id } })
     return NextResponse.json({ success: true })
   })
 }

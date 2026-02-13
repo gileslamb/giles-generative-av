@@ -7,9 +7,17 @@ export async function GET() {
   return withAdmin(async () => {
     const works = await prisma.work.findMany({
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
+      include: { tracks: { orderBy: { order: 'asc' } } },
     })
     return NextResponse.json(works)
   })
+}
+
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)+/g, '')
 }
 
 export async function POST(request: NextRequest) {
@@ -17,37 +25,35 @@ export async function POST(request: NextRequest) {
   return withAdmin(async () => {
     const body = await request.json()
     const {
-      title,
-      client,
-      description,
-      coverImage,
-      mediaUrl,
-      link,
-      runtime,
-      featured,
-      sortOrder,
-      status,
+      title, slug, year, type, description, coverImage,
+      featured, sortOrder, status,
+      spotifyUrl, appleMusicUrl, bandcampUrl, externalLinks,
+      videoEmbed, images,
     } = body
 
     if (!title || typeof title !== 'string') {
-      return NextResponse.json(
-        { error: 'title is required' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'title is required' }, { status: 400 })
     }
+
+    const finalSlug = slug?.trim() || slugify(title)
 
     const work = await prisma.work.create({
       data: {
         title,
-        client: client ?? undefined,
+        slug: finalSlug,
+        year: year ? parseInt(year, 10) : null,
+        type: type || 'album',
         description: description ?? undefined,
         coverImage: coverImage ?? undefined,
-        mediaUrl: mediaUrl ?? undefined,
-        link: link ?? undefined,
-        runtime: runtime ?? undefined,
         featured: Boolean(featured),
         sortOrder: typeof sortOrder === 'number' ? sortOrder : 0,
         status: status === 'published' ? 'published' : 'draft',
+        spotifyUrl: spotifyUrl ?? undefined,
+        appleMusicUrl: appleMusicUrl ?? undefined,
+        bandcampUrl: bandcampUrl ?? undefined,
+        externalLinks: externalLinks ?? undefined,
+        videoEmbed: videoEmbed ?? undefined,
+        images: images ?? undefined,
       },
     })
 

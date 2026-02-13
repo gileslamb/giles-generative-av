@@ -4,9 +4,9 @@ import React, { useEffect, useState } from 'react'
 
 type Counts = {
   works: number
-  making: number
-  music: number
-  quietroom: number
+  current: number
+  thinking: number
+  subscribers: number
 }
 
 export default function AdminDashboard() {
@@ -14,17 +14,16 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     async function load() {
-      const [works, making, music, quietroom] = await Promise.all([
+      const [works, current, thinking] = await Promise.all([
         fetch('/api/admin/works').then((r) => r.json()),
-        fetch('/api/admin/making').then((r) => r.json()),
-        fetch('/api/admin/music').then((r) => r.json()),
-        fetch('/api/admin/quietroom').then((r) => r.json()),
+        fetch('/api/admin/current').then((r) => r.json()),
+        fetch('/api/admin/thinking').then((r) => r.json()),
       ])
       setCounts({
         works: works.length,
-        making: making.length,
-        music: music.length,
-        quietroom: quietroom.length,
+        current: current.length,
+        thinking: thinking.length,
+        subscribers: 0, // TODO: add subscriber count API
       })
     }
     load()
@@ -32,28 +31,28 @@ export default function AdminDashboard() {
 
   const cards = [
     {
-      label: 'Selected Works',
+      label: 'Works',
       count: counts?.works ?? '—',
       href: '/admin/works',
       icon: '◈',
     },
     {
-      label: 'Making',
-      count: counts?.making ?? '—',
-      href: '/admin/making',
+      label: 'Current',
+      count: counts?.current ?? '—',
+      href: '/admin/current',
       icon: '◇',
     },
     {
-      label: 'Albums',
-      count: counts?.music ?? '—',
-      href: '/admin/music',
-      icon: '♪',
+      label: 'Thinking',
+      count: counts?.thinking ?? '—',
+      href: '/admin/thinking',
+      icon: '◌',
     },
     {
-      label: 'The Quiet Room',
-      count: counts?.quietroom ?? '—',
-      href: '/admin/quietroom',
-      icon: '◌',
+      label: 'Subscribers',
+      count: counts?.subscribers ?? '—',
+      href: '/admin/subscribers',
+      icon: '✉',
     },
   ]
 

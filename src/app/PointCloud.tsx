@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 
-type Mode = "Listen" | "Works" | "Making" | "Music" | "QuietRoom" | "Contact";
+type Mode = "Listen" | "Works" | "Current" | "Thinking";
 
 type P = {
   x: number;
@@ -16,18 +16,14 @@ type P = {
 
 function params(mode: Mode) {
   switch (mode) {
-    case "Music":
-      return { n: 7800, drift: 0.9, jitter: 0.55 };
     case "Listen":
-      return { n: 6600, drift: 0.75, jitter: 0.35 };
+      return { n: 6600, drift: 0.75, jitter: 0.35 }; // the arrival — atmospheric, alive
     case "Works":
-      return { n: 4800, drift: 0.60, jitter: 0.15 }; // calm, precise
-    case "Making":
-      return { n: 5800, drift: 1.1, jitter: 0.60 }; // energetic, creative chaos
-    case "QuietRoom":
-      return { n: 3800, drift: 0.45, jitter: 0.10 }; // sparse, slow, contemplative
-    case "Contact":
-      return { n: 4200, drift: 0.65, jitter: 0.15 };
+      return { n: 5400, drift: 0.65, jitter: 0.25 }; // body of work — present, composed
+    case "Current":
+      return { n: 5800, drift: 1.1, jitter: 0.60 }; // studio energy — active, in motion
+    case "Thinking":
+      return { n: 3800, drift: 0.45, jitter: 0.10 }; // contemplative — sparse, slow
   }
 }
 
@@ -270,7 +266,7 @@ export default function PointCloud({
       let modeCohesion = 1.0;
       let modeFlowLateral = 1.0;
       let modeAlphaBoost = 1.0;
-      let modeBehavior: "murmuration" | "vortex" | "rain" | "rainMode" = "murmuration";
+      let modeBehavior: "murmuration" | "vortex" | "rainMode" = "murmuration";
       
       // Background scene determines behavior (overrides page mode for background)
       if (backgroundScene === "rain") {
@@ -286,20 +282,17 @@ export default function PointCloud({
         if (mode === "Listen") {
           modeCohesion = 1.3;
           modeBehavior = "murmuration";
-        } else if (mode === "Making") {
+        } else if (mode === "Current") {
           modeFlowLateral = 1.4;
-          modeBehavior = "vortex"; // Energetic swirl
-        } else if (mode === "Music") {
-          modeAlphaBoost = 1.15;
-          modeBehavior = "rain"; // Downward drift
+          modeBehavior = "vortex"; // Energetic swirl — studio energy
         } else if (mode === "Works") {
           modeCohesion = 1.2;
-          modeBehavior = "murmuration"; // Calm, precise
-        } else if (mode === "QuietRoom") {
+          modeBehavior = "murmuration"; // Calm, composed
+        } else if (mode === "Thinking") {
           modeAlphaBoost = 1.05;
           modeBehavior = "murmuration"; // Sparse, contemplative
         } else {
-          modeBehavior = "murmuration"; // Contact uses baseline
+          modeBehavior = "murmuration";
         }
       }
 
@@ -393,7 +386,7 @@ export default function PointCloud({
         const flowTime = time * 0.25; // Even slower time scale
         
         // Multi-layer flow field for organic, current-like movement
-        // Apply lateral adjustment for "Making" mode
+        // Apply lateral adjustment for "Current" mode
         const lateralScale = modeFlowLateral;
         const flowX1 = Math.sin(p.x * 0.0018 + flowTime) * flowStrength * lateralScale;
         const flowY1 = Math.cos(p.y * 0.0018 + flowTime * 1.1) * flowStrength;
@@ -430,22 +423,6 @@ export default function PointCloud({
           const swirlStrength = 0.0012 * (1 + b * 0.4);
           vx += (-dy / dist) * swirlStrength;
           vy += (dx / dist) * swirlStrength;
-        } else if (modeBehavior === "rain") {
-          // Feel: Downward drift, respawn at top - unmistakable rain
-          const downwardDrift = 0.25 + b * 0.15; // Stronger downward motion
-          vy += downwardDrift * dtSec;
-          
-          // Minimal lateral flow for rain
-          const lateralFlow = Math.sin(p.x * 0.001 + time * 0.2) * 0.02;
-          vx += lateralFlow * dtSec;
-          
-          // Respawn at top when off screen
-          if (p.y > h + 50) {
-            p.y = -10;
-            p.x = Math.random() * w;
-            p.vx = (Math.random() - 0.5) * 0.2; // Less lateral spread
-            p.vy = 0;
-          }
         } else {
           // Murmuration: baseline behavior
           // Apply flow field as gentle steering force to velocity (with dt scaling)
@@ -526,8 +503,8 @@ export default function PointCloud({
         p.vx = vx;
         p.vy = vy;
 
-        // wrap (skip for rain modes - handled above)
-        if (modeBehavior !== "rain" && modeBehavior !== "rainMode") {
+        // wrap (skip for rainMode - handled above)
+        if (modeBehavior !== "rainMode") {
           if (p.x < 0) p.x = w;
           if (p.x > w) p.x = 0;
           if (p.y < 0) p.y = h;
@@ -539,7 +516,7 @@ export default function PointCloud({
         const audioSizeBoost = 1.0 + currentEnergy * 0.3; // 0-30% size increase
         
         // Alpha + radius with bloom and audio reactivity
-        // Apply mode alpha boost for "Music" mode
+        // Apply mode alpha boost
         const a = Math.min(1, p.a * (0.40 + intensity * 2.4) * modeAlphaBoost * audioBoost);
         const baseR = p.r * (0.70 + intensity * 1.3);
         const r = baseR * audioSizeBoost; // Audio modulates size slightly
@@ -558,22 +535,10 @@ export default function PointCloud({
         // Draw main particle as circle (always circles, no squares)
         ctx.fillStyle = `rgba(${particleRgb[0]},${particleRgb[1]},${particleRgb[2]},${a})`;
         
-        if (modeBehavior === "rain") {
-          // Feel mode: Draw streaks (short lines) instead of dots
-          const streakLength = Math.abs(p.vy) * 12 + 3;
-          ctx.beginPath();
-          ctx.moveTo(p.x, p.y);
-          ctx.lineTo(p.x, p.y + streakLength);
-          ctx.strokeStyle = `rgba(${particleRgb[0]},${particleRgb[1]},${particleRgb[2]},${a * 0.9})`;
-          ctx.lineWidth = r * 1.2;
-          ctx.lineCap = "round";
-          ctx.stroke();
-        } else {
-          // All other modes: Draw circles only (no squares)
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
-          ctx.fill();
-        }
+        // Draw circles
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+        ctx.fill();
       }
 
       // Rain mode: update and render streaming emitter particles

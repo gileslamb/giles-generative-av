@@ -7,7 +7,7 @@ export async function GET() {
     const albums = await prisma.album.findMany({
       where: { status: 'published' },
       include: {
-        tracks: { orderBy: { order: 'asc' } },
+        legacyTracks: { orderBy: { order: 'asc' } },
       },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
     })

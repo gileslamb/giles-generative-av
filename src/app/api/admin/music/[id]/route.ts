@@ -13,7 +13,7 @@ export async function GET(
     const album = await prisma.album.findUnique({
       where: { id },
       include: {
-        tracks: { orderBy: { order: 'asc' } },
+        legacyTracks: { orderBy: { order: 'asc' } },
       },
     })
 
