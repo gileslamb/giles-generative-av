@@ -53,7 +53,7 @@ export default function HomePage() {
   const [flockStyle, setFlockStyle] = useState<"single" | "streams">("single");
   const [shapeMode, setShapeMode] = useState<ShapeMode>("circular");
   const [colorPalette, setColorPalette] = useState<ColorPalette>("charcoal");
-  const [backgroundScene, setBackgroundScene] = useState<"space" | "rain" | "forest">("space");
+  const [backgroundScene, setBackgroundSceneState] = useState<"space" | "rain" | "forest">("space");
   const [breathingTextOpacity, setBreathingTextOpacity] = useState(0);
   const [seed, setSeed] = useState(1);
 
@@ -68,6 +68,22 @@ export default function HomePage() {
   const typingBedRef = useRef<HTMLAudioElement | null>(null);
   const startTypingBedRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastLineEndTimeRef = useRef<number>(0);
+
+  // Wrapper that also syncs back to PlayerControls
+  const setBackgroundScene = (s: "space" | "rain" | "forest") => {
+    setBackgroundSceneState(s);
+    window.dispatchEvent(new CustomEvent("scene-sync", { detail: { scene: s } }));
+  };
+
+  // Listen for scene changes from PlayerControls (top-right panel)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.scene) setBackgroundSceneState(detail.scene);
+    };
+    window.addEventListener("scene-change", handler);
+    return () => window.removeEventListener("scene-change", handler);
+  }, []);
 
   // Randomize visuals on mount
   useEffect(() => {
@@ -348,54 +364,34 @@ export default function HomePage() {
         <ThinkingFeed entries={content.thinkingEntries} onEntryClick={handleThinkingClick} />
       )}
 
-      {/* ── Bottom bar: Nav + Soundscapes ── */}
+      {/* ── Bottom bar: Signup + Social + Nav ── */}
       <div className="fixed bottom-4 sm:bottom-6 left-4 sm:left-6 right-4 sm:right-6 z-20 pointer-events-auto">
-        {/* Sign up + Contact — above nav */}
-        <div className="mb-3 flex items-center gap-4 pl-0.5">
+        {/* Sign up + Contact + Social — above nav */}
+        <div className="mb-3 flex items-center gap-3 sm:gap-4 pl-0.5 flex-wrap">
           <SignUpForm />
-          <a
-            href="mailto:giles@gileslamb.com"
-            className="text-xs text-white/20 hover:text-white/50 transition-colors"
-          >
-            Contact
-          </a>
+          <a href="mailto:giles@gileslamb.com" className="text-xs text-white/20 hover:text-white/50 transition-colors">Contact</a>
+          <span className="text-white/[0.06]">·</span>
+          <a href="https://www.linkedin.com/in/gileslamb" target="_blank" rel="noopener noreferrer" className="text-[10px] text-white/15 hover:text-white/45 transition-colors">LinkedIn</a>
+          <a href="https://www.instagram.com/gileslamb" target="_blank" rel="noopener noreferrer" className="text-[10px] text-white/15 hover:text-white/45 transition-colors">Instagram</a>
+          <a href="https://x.com/gileslamb" target="_blank" rel="noopener noreferrer" className="text-[10px] text-white/15 hover:text-white/45 transition-colors">X</a>
         </div>
 
-        <div className="flex items-center justify-between gap-2">
-          {/* Nav buttons */}
-          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-            {NAV_MODES.map((m) => (
-              <button
-                key={m}
-                onClick={() => setMode(m)}
-                className={[
-                  "rounded-full border px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm transition",
-                  m === mode
-                    ? "border-white/70 bg-white/10 font-medium"
-                    : "border-white/20 bg-white/0 hover:border-white/50 hover:bg-white/5",
-                ].join(" ")}
-              >
-                {MODE_DISPLAY_NAMES[m]}
-              </button>
-            ))}
-          </div>
-
-          {/* Soundscape toggles */}
-          <div className="hidden sm:flex items-center gap-1 border border-white/8 rounded-full px-2 py-1 bg-white/[0.02]">
-            {(["space", "rain", "forest"] as const).map((scene) => (
-              <button
-                key={scene}
-                onClick={() => setBackgroundScene(scene)}
-                className={[
-                  "rounded-full px-2 py-1 text-[11px] transition",
-                  backgroundScene === scene ? "text-white/60" : "text-white/20 hover:text-white/40",
-                ].join(" ")}
-                title={scene}
-              >
-                {scene === "space" ? "✦" : scene === "rain" ? "☁" : "🌿"}
-              </button>
-            ))}
-          </div>
+        {/* Nav buttons only */}
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+          {NAV_MODES.map((m) => (
+            <button
+              key={m}
+              onClick={() => setMode(m)}
+              className={[
+                "rounded-full border px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm transition",
+                m === mode
+                  ? "border-white/70 bg-white/10 font-medium"
+                  : "border-white/20 bg-white/0 hover:border-white/50 hover:bg-white/5",
+              ].join(" ")}
+            >
+              {MODE_DISPLAY_NAMES[m]}
+            </button>
+          ))}
         </div>
       </div>
 

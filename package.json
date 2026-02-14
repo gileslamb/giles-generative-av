@@ -7,8 +7,8 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && next build --webpack",
-    "build:render": "prisma generate && prisma migrate deploy && next build --webpack",
+    "build": "prisma generate && next build",
+    "build:render": "prisma generate && prisma migrate deploy && next build",
     "db:migrate": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
     "start": "next start",

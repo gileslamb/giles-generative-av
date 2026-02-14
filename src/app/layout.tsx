@@ -4,6 +4,7 @@ import "./globals.css";
 import AudioProvider from "./providers/AudioProvider";
 import PlayerControls from "./components/PlayerControls";
 import SiteBrand from "./components/SiteBrand";
+import NowPlaying from "./components/NowPlaying";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -38,6 +39,7 @@ export default function RootLayout({
       >
         <AudioProvider>
           <SiteBrand />
+          <NowPlaying />
           <PlayerControls />
           {children}
         </AudioProvider>

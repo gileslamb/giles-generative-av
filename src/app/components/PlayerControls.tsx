@@ -1,9 +1,15 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { usePathname } from "next/navigation";
 import { useAudio } from "../providers/AudioProvider";
 
+type Scene = "space" | "rain" | "forest";
+
+/**
+ * Unified control panel — top-right on all devices.
+ * Play/Pause, Next, Mute + Soundscape text labels.
+ */
 export default function PlayerControls() {
   const pathname = usePathname();
   const {
@@ -14,10 +20,25 @@ export default function PlayerControls() {
     audioEnabled,
     setAudioEnabled,
     nextTrack,
-    currentTrackName,
   } = useAudio();
 
-  // Don't show on admin pages
+  const [scene, setScene] = useState<Scene>("space");
+
+  // Listen for scene sync from page.tsx
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.scene) setScene(detail.scene);
+    };
+    window.addEventListener("scene-sync", handler);
+    return () => window.removeEventListener("scene-sync", handler);
+  }, []);
+
+  const handleSceneChange = useCallback((s: Scene) => {
+    setScene(s);
+    window.dispatchEvent(new CustomEvent("scene-change", { detail: { scene: s } }));
+  }, []);
+
   if (pathname.startsWith("/admin")) return null;
 
   const handlePlay = () => {
@@ -26,72 +47,55 @@ export default function PlayerControls() {
   };
 
   return (
-    <>
-      {/* Desktop: top-right pill */}
-      <div className="hidden sm:flex fixed top-6 right-6 z-40 items-center gap-1.5 border border-white/10 rounded-full px-3 py-1.5 bg-black/30 backdrop-blur-sm pointer-events-auto">
-        {currentTrackName && isPlaying && (
-          <span
-            className="text-[10px] text-white/25 max-w-[180px] truncate mr-1"
-            style={{ fontFamily: "var(--font-jetbrains-mono), monospace" }}
-          >
-            {currentTrackName}
-          </span>
-        )}
-        <button
-          onClick={handlePlay}
-          className="w-9 h-9 flex items-center justify-center rounded-full text-white/50 hover:text-white/90 hover:bg-white/10 transition-all text-sm"
-          title={isPlaying ? "Pause" : "Play"}
-        >
-          {isPlaying ? "❚❚" : "▶"}
-        </button>
-        <button
-          onClick={nextTrack}
-          className="w-8 h-8 flex items-center justify-center rounded-full text-white/40 hover:text-white/80 hover:bg-white/10 transition-all text-xs"
-          title="Next track"
-        >
-          ⏭
-        </button>
-        <button
-          onClick={() => setIsMuted((m) => !m)}
-          className="w-8 h-8 flex items-center justify-center rounded-full text-white/40 hover:text-white/80 hover:bg-white/10 transition-all text-xs"
-          title={isMuted ? "Unmute" : "Mute"}
-        >
-          {isMuted ? "🔇" : "🔊"}
-        </button>
-      </div>
+    <div
+      className="fixed top-4 right-4 sm:top-6 sm:right-6 z-40 pointer-events-auto flex items-center gap-0.5 sm:gap-1 border border-white/10 rounded-full px-1.5 sm:px-2.5 py-0.5 sm:py-1 bg-black/30 backdrop-blur-sm"
+      style={{ fontFamily: "var(--font-jetbrains-mono), monospace" }}
+    >
+      {/* Play / Pause */}
+      <button
+        onClick={handlePlay}
+        className="w-9 h-9 sm:w-8 sm:h-8 flex items-center justify-center rounded-full text-white/50 hover:text-white/90 hover:bg-white/10 transition-all text-sm"
+        title={isPlaying ? "Pause" : "Play"}
+      >
+        {isPlaying ? "❚❚" : "▶"}
+      </button>
 
-      {/* Mobile: fixed bottom bar, above nav */}
-      <div className="sm:hidden fixed bottom-[68px] left-3 right-3 z-40 flex items-center justify-center gap-1 border border-white/10 rounded-full px-3 py-1 bg-black/40 backdrop-blur-sm pointer-events-auto">
-        {currentTrackName && isPlaying && (
-          <span
-            className="text-[9px] text-white/20 max-w-[100px] truncate mr-1"
-            style={{ fontFamily: "var(--font-jetbrains-mono), monospace" }}
-          >
-            {currentTrackName}
-          </span>
-        )}
+      {/* Next */}
+      <button
+        onClick={nextTrack}
+        className="w-9 h-9 sm:w-8 sm:h-8 flex items-center justify-center rounded-full text-white/40 hover:text-white/80 hover:bg-white/10 transition-all text-xs"
+        title="Next track"
+      >
+        ⏭
+      </button>
+
+      {/* Mute */}
+      <button
+        onClick={() => setIsMuted((m) => !m)}
+        className="w-9 h-9 sm:w-8 sm:h-8 flex items-center justify-center rounded-full text-white/40 hover:text-white/80 hover:bg-white/10 transition-all text-xs"
+        title={isMuted ? "Unmute" : "Mute"}
+      >
+        {isMuted ? "🔇" : "🔊"}
+      </button>
+
+      {/* Divider */}
+      <span className="text-white/[0.08] mx-0.5">|</span>
+
+      {/* Soundscape toggles — text labels */}
+      {(["space", "rain", "forest"] as const).map((s) => (
         <button
-          onClick={handlePlay}
-          className="w-11 h-11 flex items-center justify-center rounded-full text-white/50 hover:text-white/90 hover:bg-white/10 transition-all text-base"
-          title={isPlaying ? "Pause" : "Play"}
+          key={s}
+          onClick={() => handleSceneChange(s)}
+          className={[
+            "px-1.5 sm:px-2 py-1 rounded-full text-[9px] sm:text-[10px] capitalize transition-all duration-200",
+            scene === s
+              ? "text-white/60 bg-white/[0.06]"
+              : "text-white/20 hover:text-white/45",
+          ].join(" ")}
         >
-          {isPlaying ? "❚❚" : "▶"}
+          {s}
         </button>
-        <button
-          onClick={nextTrack}
-          className="w-10 h-10 flex items-center justify-center rounded-full text-white/40 hover:text-white/80 hover:bg-white/10 transition-all text-sm"
-          title="Next track"
-        >
-          ⏭
-        </button>
-        <button
-          onClick={() => setIsMuted((m) => !m)}
-          className="w-10 h-10 flex items-center justify-center rounded-full text-white/40 hover:text-white/80 hover:bg-white/10 transition-all text-sm"
-          title={isMuted ? "Unmute" : "Mute"}
-        >
-          {isMuted ? "🔇" : "🔊"}
-        </button>
-      </div>
-    </>
+      ))}
+    </div>
   );
 }

@@ -48,25 +48,9 @@ export default function CurrentEntryPage() {
     }
   }, [entry]);
 
-  const postUrl = typeof window !== "undefined" ? window.location.href : "";
-
-  const shareX = () => {
-    const text = entry?.title || "Current";
-    window.open(
-      `https://twitter.com/intent/tweet?url=${encodeURIComponent(postUrl)}&text=${encodeURIComponent(text)}`,
-      "_blank"
-    );
-  };
-
-  const shareLinkedIn = () => {
-    window.open(
-      `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(postUrl)}`,
-      "_blank"
-    );
-  };
-
   const copyLink = () => {
-    navigator.clipboard.writeText(postUrl).then(() => {
+    const url = typeof window !== "undefined" ? window.location.href : "";
+    navigator.clipboard.writeText(url).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
@@ -179,29 +163,14 @@ export default function CurrentEntryPage() {
             </div>
           )}
 
-          {/* Share */}
+          {/* Share — copy link only */}
           <div className="mb-12 border-t border-white/[0.06] pt-8">
-            <div className="text-white/25 text-[10px] tracking-widest uppercase mb-3">Share</div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={shareX}
-                className="rounded-full border border-white/10 px-4 py-1.5 text-xs text-white/35 hover:text-white/70 hover:border-white/25 transition-all duration-200"
-              >
-                X / Twitter
-              </button>
-              <button
-                onClick={shareLinkedIn}
-                className="rounded-full border border-white/10 px-4 py-1.5 text-xs text-white/35 hover:text-white/70 hover:border-white/25 transition-all duration-200"
-              >
-                LinkedIn
-              </button>
-              <button
-                onClick={copyLink}
-                className="rounded-full border border-white/10 px-4 py-1.5 text-xs text-white/35 hover:text-white/70 hover:border-white/25 transition-all duration-200"
-              >
-                {copied ? "Copied!" : "Copy link"}
-              </button>
-            </div>
+            <button
+              onClick={copyLink}
+              className="rounded-full border border-white/10 px-4 py-1.5 text-xs text-white/30 hover:text-white/65 hover:border-white/25 transition-all duration-200"
+            >
+              {copied ? "Copied!" : "Copy link"}
+            </button>
           </div>
         </div>
       </div>
