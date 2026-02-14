@@ -7,8 +7,10 @@ import { useAudio } from "../providers/AudioProvider";
 type Scene = "space" | "rain" | "forest";
 
 /**
- * Unified control panel — top-right on all devices.
- * Play/Pause, Next, Mute + Soundscape text labels.
+ * Unified control panel.
+ * Desktop: top-right pill.
+ * Mobile: bottom bar, above the signup / nav area.
+ * Same symbols on both. Text "Mute"/"Unmute" instead of speaker icons.
  */
 export default function PlayerControls() {
   const pathname = usePathname();
@@ -46,11 +48,8 @@ export default function PlayerControls() {
     setIsPlaying((p) => !p);
   };
 
-  return (
-    <div
-      className="fixed top-4 right-4 sm:top-6 sm:right-6 z-40 pointer-events-auto flex items-center gap-0.5 sm:gap-1 border border-white/10 rounded-full px-1.5 sm:px-2.5 py-0.5 sm:py-1 bg-black/30 backdrop-blur-sm"
-      style={{ fontFamily: "var(--font-jetbrains-mono), monospace" }}
-    >
+  const controlsInner = (
+    <>
       {/* Play / Pause */}
       <button
         onClick={handlePlay}
@@ -69,13 +68,13 @@ export default function PlayerControls() {
         ⏭
       </button>
 
-      {/* Mute */}
+      {/* Mute — text label */}
       <button
         onClick={() => setIsMuted((m) => !m)}
-        className="w-9 h-9 sm:w-8 sm:h-8 flex items-center justify-center rounded-full text-white/40 hover:text-white/80 hover:bg-white/10 transition-all text-xs"
+        className="px-2 py-1 rounded-full text-[9px] sm:text-[10px] uppercase tracking-wider text-white/40 hover:text-white/80 hover:bg-white/10 transition-all"
         title={isMuted ? "Unmute" : "Mute"}
       >
-        {isMuted ? "🔇" : "🔊"}
+        {isMuted ? "Unmute" : "Mute"}
       </button>
 
       {/* Divider */}
@@ -96,6 +95,26 @@ export default function PlayerControls() {
           {s}
         </button>
       ))}
-    </div>
+    </>
+  );
+
+  return (
+    <>
+      {/* Desktop: top-right pill */}
+      <div
+        className="hidden sm:flex fixed top-6 right-6 z-40 pointer-events-auto items-center gap-1 border border-white/10 rounded-full px-2.5 py-1 bg-black/30 backdrop-blur-sm"
+        style={{ fontFamily: "var(--font-jetbrains-mono), monospace" }}
+      >
+        {controlsInner}
+      </div>
+
+      {/* Mobile: fixed bottom bar, above signup/nav (z-21 so it layers above the z-20 nav) */}
+      <div
+        className="sm:hidden fixed bottom-[120px] left-3 right-3 z-[21] pointer-events-auto flex items-center justify-center gap-0.5 border border-white/10 rounded-full px-2 py-0.5 bg-black/40 backdrop-blur-sm"
+        style={{ fontFamily: "var(--font-jetbrains-mono), monospace" }}
+      >
+        {controlsInner}
+      </div>
+    </>
   );
 }

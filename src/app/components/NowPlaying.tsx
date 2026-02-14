@@ -80,53 +80,57 @@ export default function NowPlaying() {
 
   const renderText = () => {
     const lines = displayedText.split("\n");
-    return lines.map((line, i) => {
-      if (line === "") return <div key={i} className="h-3" />;
-      if (line.startsWith("Now Playing:"))
-        return (
-          <div key={i} className="text-white/30">
-            {line}
-          </div>
+    const elements: React.ReactNode[] = [];
+
+    lines.forEach((line, i) => {
+      if (line === "") {
+        elements.push(<div key={i} className="h-4" />);
+        return;
+      }
+      if (line.startsWith("Now Playing:")) {
+        elements.push(
+          <div key={i} className="text-blue-400/70">{line}</div>
         );
-      if (line.startsWith("next →")) {
+      } else if (line.startsWith("next →")) {
         const complete = isCompleteRef.current;
-        return (
+        elements.push(
           <div key={i}>
             {complete ? (
               <button
                 onClick={nextTrack}
-                className="text-white/25 hover:text-white/50 transition-colors cursor-pointer"
+                className="text-green-400 hover:text-green-300 transition-colors cursor-pointer"
               >
                 {line}
               </button>
             ) : (
-              <span className="text-white/25">{line}</span>
+              <span className="text-green-400">{line}</span>
             )}
           </div>
         );
+      } else {
+        elements.push(
+          <div key={i} className="text-blue-400">{line}</div>
+        );
       }
-      return (
-        <div key={i} className="text-white/50">
-          {line}
-        </div>
-      );
     });
+
+    if (showCursor && isCompleteRef.current) {
+      elements.push(
+        <span key="cursor" className="text-blue-400/70">▊</span>
+      );
+    }
+
+    return elements;
   };
 
   return (
-    <div
-      className="fixed left-[75px] sm:left-[100px] top-5 sm:top-6 z-30 pointer-events-auto"
-      style={{
-        fontFamily: "var(--font-jetbrains-mono), monospace",
-        fontSize: "10px",
-        lineHeight: "1.6",
-        textShadow: "0 0 8px rgba(255,255,255,0.1)",
-      }}
-    >
-      {renderText()}
-      {showCursor && isCompleteRef.current && (
-        <span className="text-white/30 text-[10px]">▊</span>
-      )}
+    <div className="fixed left-[120px] top-8 z-30 pointer-events-auto">
+      <div
+        className="font-mono text-sm leading-relaxed"
+        style={{ textShadow: "0 0 8px rgba(255, 255, 255, 0.15)" }}
+      >
+        {renderText()}
+      </div>
     </div>
   );
 }
