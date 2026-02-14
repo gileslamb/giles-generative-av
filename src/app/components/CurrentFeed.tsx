@@ -1,25 +1,120 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { stripHtml, type ApiCurrentEntry } from "@/lib/useContent";
-
-/** Try to extract the first image from images JSON string */
-function getFirstImage(images?: string | null): string | null {
-  if (!images) return null;
-  try {
-    const arr = JSON.parse(images);
-    if (Array.isArray(arr) && arr.length > 0) return arr[0];
-  } catch { /* noop */ }
-  return null;
-}
 
 export default function CurrentFeed({
   entries,
   onEntryClick,
+  onLineTypingStart,
+  onLineTypingEnd,
 }: {
   entries: ApiCurrentEntry[];
   onEntryClick: (id: string) => void;
+  onLineTypingStart: () => void;
+  onLineTypingEnd: () => void;
 }) {
+  const [displayedText, setDisplayedText] = useState("");
+  const [done, setDone] = useState(false);
+  const [showCursor, setShowCursor] = useState(false);
+  const onStartRef = useRef(onLineTypingStart);
+  const onEndRef = useRef(onLineTypingEnd);
+  onStartRef.current = onLineTypingStart;
+  onEndRef.current = onLineTypingEnd;
+
+  const fullText = useMemo(() => {
+    const lines: string[] = ["Current", "", "What's alive right now.", ""];
+    if (entries.length > 0) {
+      entries.forEach((entry, i) => {
+        if (i > 0) lines.push("");
+        if (entry.title) lines.push(`→ ${entry.title}`);
+        if (entry.publishedAt) {
+          lines.push(new Date(entry.publishedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }));
+        }
+        const plain = stripHtml(entry.body);
+        lines.push(plain.length > 120 ? plain.substring(0, 120) + "..." : plain);
+      });
+    } else {
+      lines.push("Nothing here yet. Something will appear when it's ready.");
+    }
+    return lines.join("\n");
+  }, [entries]);
+
+  useEffect(() => {
+    setDisplayedText("");
+    setDone(false);
+    setShowCursor(false);
+
+    let idx = 0;
+    let cancelled = false;
+    let lastWasNewline = true;
+    let soundActive = false;
+    let timer: ReturnType<typeof setTimeout>;
+
+    const tick = () => {
+      if (cancelled) return;
+      if (idx >= fullText.length) {
+        if (soundActive) { onEndRef.current(); soundActive = false; }
+        setDisplayedText(fullText);
+        setDone(true);
+        setShowCursor(true);
+        return;
+      }
+      const ch = fullText[idx];
+      if (lastWasNewline && ch !== "\n") {
+        if (soundActive) onEndRef.current();
+        onStartRef.current();
+        soundActive = true;
+      }
+      if (ch === "\n" && soundActive) {
+        onEndRef.current();
+        soundActive = false;
+      }
+      lastWasNewline = ch === "\n";
+      idx++;
+      setDisplayedText(fullText.substring(0, idx));
+      timer = setTimeout(tick, 7 + Math.random() * 6);
+    };
+
+    timer = setTimeout(tick, 50);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+      if (soundActive) onEndRef.current();
+    };
+  }, [fullText]);
+
+  useEffect(() => {
+    if (!showCursor) return;
+    const interval = setInterval(() => setShowCursor((p) => !p), 530);
+    return () => clearInterval(interval);
+  }, [showCursor]);
+
+  const renderText = useCallback(() => {
+    return displayedText.split("\n").map((line, i) => {
+      if (line === "") return <div key={i} className="h-4" />;
+      if (line === "Current") return <div key={i} className="text-white/90 mb-1">{line}</div>;
+      if (line === "What's alive right now.") return <div key={i} className="text-white/60 mb-2">{line}</div>;
+      if (line.startsWith("→ ")) {
+        const title = line.substring(2);
+        const entry = entries.find((e) => e.title === title);
+        return (
+          <div key={i}>
+            {done && entry ? (
+              <button onClick={() => onEntryClick(entry.id)} className="text-red-400 hover:text-red-300 transition-colors cursor-pointer text-left">{title}</button>
+            ) : (
+              <span className="text-red-400">{title}</span>
+            )}
+          </div>
+        );
+      }
+      if (/^\d{1,2}\s\w{3}\s\d{4}$/.test(line)) return <div key={i} className="text-white/20 text-xs">{line}</div>;
+      if (line.startsWith("Nothing here")) return <div key={i} className="text-white/40">{line}</div>;
+      return <div key={i} className="text-white/40 text-xs leading-relaxed">{line}</div>;
+    });
+  }, [displayedText, done, entries, onEntryClick]);
+
   return (
     <div
       className="fixed left-6 top-[140px] z-10 pointer-events-auto"
@@ -34,65 +129,10 @@ export default function CurrentFeed({
         overflowY: "auto",
       }}
     >
-      <div className="text-white/90 mb-1">Current</div>
-      <div className="h-4" />
-      <div className="text-white/60 mb-4">
-        What&apos;s alive right now.
+      <div className="space-y-0.5">
+        {renderText()}
+        {showCursor && <span className="inline-block w-2 h-4 bg-white/80 ml-1 animate-pulse" />}
       </div>
-
-      {entries.length > 0 ? (
-        <div className="space-y-4">
-          {entries.map((entry) => {
-            const plainText = stripHtml(entry.body);
-            const preview = plainText.length > 120
-              ? plainText.substring(0, 120) + "..."
-              : plainText;
-            const thumb = getFirstImage(entry.images);
-
-            return (
-              <button
-                key={entry.id}
-                onClick={() => onEntryClick(entry.id)}
-                className="block w-full text-left group transition-all duration-200 border-l border-white/10 pl-4 hover:border-white/30"
-              >
-                <div className="flex gap-3">
-                  {/* Thumbnail */}
-                  {thumb && (
-                    <div className="flex-shrink-0 w-14 h-14 sm:w-16 sm:h-16 rounded overflow-hidden mt-0.5">
-                      <img
-                        src={thumb}
-                        alt=""
-                        className="w-full h-full object-cover opacity-70 group-hover:opacity-90 transition-opacity duration-300"
-                      />
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    {entry.title && (
-                      <div className="text-white/80 group-hover:text-white/95 transition-colors mb-0.5 truncate">
-                        {entry.title}
-                      </div>
-                    )}
-                    {entry.publishedAt && (
-                      <div className="text-white/20 text-xs mb-1">
-                        {new Date(entry.publishedAt).toLocaleDateString("en-GB", {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        })}
-                      </div>
-                    )}
-                    <div className="text-white/40 text-xs leading-relaxed group-hover:text-white/55 transition-colors">
-                      {preview}
-                    </div>
-                  </div>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      ) : (
-        <div className="text-white/40">Nothing here yet. Something will appear when it&apos;s ready.</div>
-      )}
     </div>
   );
 }

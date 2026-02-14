@@ -331,9 +331,9 @@ export default function HomePage() {
       <audio ref={soundscapeSpaceRef} preload="auto" />
       <audio ref={typingBedRef} src="/audio/soundscapes/type-key-v2.wav" preload="auto" />
 
-      {/* ── Breathing text (below the layout-level logo) ── */}
+      {/* ── Breathing text (below the layout-level logo + now playing) ── */}
       <div
-        className="pointer-events-none fixed left-5 top-[90px] sm:top-[105px] z-10 max-w-[280px] sm:max-w-[400px] transition-opacity duration-[4000ms]"
+        className="pointer-events-none fixed left-5 top-[110px] sm:top-[125px] z-10 max-w-[280px] sm:max-w-[400px] transition-opacity duration-[4000ms]"
         style={{
           opacity: breathingTextOpacity,
           fontFamily: "var(--font-jetbrains-mono), ui-monospace, monospace",
@@ -357,11 +357,23 @@ export default function HomePage() {
       )}
 
       {mode === "Current" && (
-        <CurrentFeed entries={content.currentEntries} onEntryClick={handleCurrentClick} />
+        <CurrentFeed
+          key="current-feed"
+          entries={content.currentEntries}
+          onEntryClick={handleCurrentClick}
+          onLineTypingStart={startTypingBed}
+          onLineTypingEnd={stopTypingBed}
+        />
       )}
 
       {mode === "Thinking" && (
-        <ThinkingFeed entries={content.thinkingEntries} onEntryClick={handleThinkingClick} />
+        <ThinkingFeed
+          key="thinking-feed"
+          entries={content.thinkingEntries}
+          onEntryClick={handleThinkingClick}
+          onLineTypingStart={startTypingBed}
+          onLineTypingEnd={stopTypingBed}
+        />
       )}
 
       {/* ── Bottom bar: Signup + Social + Nav ── */}
@@ -370,10 +382,6 @@ export default function HomePage() {
         <div className="mb-3 flex items-center gap-3 sm:gap-4 pl-0.5 flex-wrap">
           <SignUpForm />
           <a href="mailto:giles@gileslamb.com" className="text-xs text-white/20 hover:text-white/50 transition-colors">Contact</a>
-          <span className="text-white/[0.06]">·</span>
-          <a href="https://www.linkedin.com/in/gileslamb" target="_blank" rel="noopener noreferrer" className="text-[10px] text-white/15 hover:text-white/45 transition-colors">LinkedIn</a>
-          <a href="https://www.instagram.com/gileslamb" target="_blank" rel="noopener noreferrer" className="text-[10px] text-white/15 hover:text-white/45 transition-colors">Instagram</a>
-          <a href="https://x.com/gileslamb" target="_blank" rel="noopener noreferrer" className="text-[10px] text-white/15 hover:text-white/45 transition-colors">X</a>
         </div>
 
         {/* Nav buttons only */}

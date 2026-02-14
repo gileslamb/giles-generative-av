@@ -1,16 +1,29 @@
 "use client";
+/* eslint-disable react-compiler/react-compiler */
+"use no memo";
 
 import React, { useEffect, useState, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { useAudio } from "../providers/AudioProvider";
 
 /**
- * Now Playing readout — lives top-left, next to the logo.
- * Typewriter-types the current track info. Visible on all non-admin pages.
+ * Now Playing readout — aligned to logo, top-left.
+ * "Now Playing:" is clickable → pauses, toggles to "Play" (clickable → resumes).
+ * Controls: next → / pause / MUTE inline.
  */
 export default function NowPlaying() {
   const pathname = usePathname();
-  const { trackUrl, nextTrack, currentTrackName } = useAudio();
+  const {
+    trackUrl,
+    isPlaying,
+    setIsPlaying,
+    isMuted,
+    setIsMuted,
+    audioEnabled,
+    setAudioEnabled,
+    nextTrack,
+    currentTrackName,
+  } = useAudio();
 
   const [displayedText, setDisplayedText] = useState("");
   const [showCursor, setShowCursor] = useState(false);
@@ -22,18 +35,18 @@ export default function NowPlaying() {
 
   const isAdmin = pathname.startsWith("/admin");
 
-  // Build and type the text when track changes
+  // Build and type the track name when track changes
   useEffect(() => {
     if (isAdmin) return;
 
-    const name = currentTrackName || trackUrl?.split("/").pop()?.replace(/\.[^.]+$/, "") || "";
+    const name =
+      currentTrackName ||
+      trackUrl?.split("/").pop()?.replace(/\.[^.]+$/, "") ||
+      "";
 
-    const lines = name
-      ? ["Now Playing:", name, "next →"]
-      : ["Now Playing:", "— (idle)", "next →"];
-
-    const newFullText = lines.join("\n");
-    const shouldRetype = trackUrl !== lastTrackUrlRef.current || fullTextRef.current === "";
+    const newFullText = name || "— (idle)";
+    const shouldRetype =
+      trackUrl !== lastTrackUrlRef.current || fullTextRef.current === "";
 
     if (shouldRetype) {
       lastTrackUrlRef.current = trackUrl;
@@ -54,7 +67,9 @@ export default function NowPlaying() {
         const delay = 7 + Math.random() * 6;
         timeoutRef.current = setTimeout(() => {
           currentIndexRef.current += 1;
-          setDisplayedText(fullTextRef.current.substring(0, currentIndexRef.current));
+          setDisplayedText(
+            fullTextRef.current.substring(0, currentIndexRef.current)
+          );
           startTyping();
         }, delay);
       };
@@ -78,59 +93,64 @@ export default function NowPlaying() {
 
   if (isAdmin) return null;
 
-  const renderText = () => {
-    const lines = displayedText.split("\n");
-    const elements: React.ReactNode[] = [];
-
-    lines.forEach((line, i) => {
-      if (line === "") {
-        elements.push(<div key={i} className="h-4" />);
-        return;
-      }
-      if (line.startsWith("Now Playing:")) {
-        elements.push(
-          <div key={i} className="text-blue-400/70">{line}</div>
-        );
-      } else if (line.startsWith("next →")) {
-        const complete = isCompleteRef.current;
-        elements.push(
-          <div key={i}>
-            {complete ? (
-              <button
-                onClick={nextTrack}
-                className="text-green-400 hover:text-green-300 transition-colors cursor-pointer"
-              >
-                {line}
-              </button>
-            ) : (
-              <span className="text-green-400">{line}</span>
-            )}
-          </div>
-        );
-      } else {
-        elements.push(
-          <div key={i} className="text-blue-400">{line}</div>
-        );
-      }
-    });
-
-    if (showCursor && isCompleteRef.current) {
-      elements.push(
-        <span key="cursor" className="text-blue-400/70">▊</span>
-      );
-    }
-
-    return elements;
+  const handlePlayToggle = () => {
+    if (!audioEnabled) setAudioEnabled(true);
+    setIsPlaying((p) => !p);
   };
 
   return (
-    <div className="fixed left-[120px] top-8 z-30 pointer-events-auto">
-      <div
-        className="font-mono text-sm leading-relaxed"
-        style={{ textShadow: "0 0 8px rgba(255, 255, 255, 0.15)" }}
-      >
-        {renderText()}
+    <div
+      className="fixed left-[72px] sm:left-[95px] top-[18px] sm:top-[22px] z-30 pointer-events-auto"
+      style={{
+        fontFamily: "var(--font-jetbrains-mono), monospace",
+        fontSize: "10px",
+        lineHeight: "1.55",
+        textShadow: "0 0 8px rgba(255, 255, 255, 0.12)",
+      }}
+    >
+      {/* Line 1: clickable toggle — "Now Playing:" (click to pause) / "Play" (click to play) */}
+      <div>
+        <button
+          onClick={handlePlayToggle}
+          className="text-blue-400/70 hover:text-blue-300 transition-colors cursor-pointer"
+        >
+          {isPlaying ? "Now Playing:" : "Play"}
+        </button>
       </div>
+
+      {/* Line 2: Track name (typewriter) */}
+      <div className="text-blue-400">
+        {displayedText}
+        {showCursor && isCompleteRef.current && (
+          <span className="text-blue-400/60"> ▊</span>
+        )}
+      </div>
+
+      {/* Line 3: next → / pause / MUTE — inline controls */}
+      {isCompleteRef.current && (
+        <div className="flex items-center gap-2 mt-0.5">
+          <button
+            onClick={nextTrack}
+            className="text-green-400 hover:text-green-300 transition-colors cursor-pointer"
+          >
+            next →
+          </button>
+          {isPlaying && (
+            <button
+              onClick={() => setIsPlaying(false)}
+              className="text-green-400/60 hover:text-green-300 transition-colors cursor-pointer"
+            >
+              pause
+            </button>
+          )}
+          <button
+            onClick={() => setIsMuted((m) => !m)}
+            className="text-amber-400/80 hover:text-amber-300 transition-colors cursor-pointer uppercase tracking-wider font-medium"
+          >
+            {isMuted ? "UNMUTE" : "MUTE"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
